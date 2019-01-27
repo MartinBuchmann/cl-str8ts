@@ -1,0 +1,14 @@
+# -*- ispell-local-dictionary: "en" -*-
+#+TITLE: CL-STR8TS
+#+AUTHOR: Martin Buchmann
+#+STARTUP: showall
+#+OPTIONS: toc:nil
+
+* Introduction
+
+I came across [[https://en.wikipedia.org/wiki/Str8ts][str8ts]] puzzles recently and want to implement a solver in Common
+lisp similar to my [[https://github.com/MartinBuchmann/binoxxo][binoxxo]] solver.
+
+/to be continued.../
+
+
