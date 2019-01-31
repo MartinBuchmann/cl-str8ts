@@ -1,4 +1,4 @@
-;; Time-stamp: <2019-01-30 21:46:31 Martin>
+;; Time-stamp: <2019-01-31 21:07:00 Martin>
 ;; * str8ts.lisp
 ;; See Readme.org for more information
 ;;
@@ -29,7 +29,8 @@
 (defvar *the-puzzle* (make-array (list 9 9) :element-type 'value))
 
 ;; * Read in a puzzle
-(defun read-puzzle (&optional (file #p"medium.txt"))
+(defun read-puzzle (&optional (file #p"medium.txt")
+                    &aux (puzzle (make-array (list 9 9) :element-type 'value)))
   "Read in the puzzle's data where each puzzle consists of one line:
 
 A 10 indicates a black field, negative numbers are numbers within black fields,
@@ -37,11 +38,32 @@ the given numbers and the empty fields are represented by 0.
 "
   (iter (for v in-file file)
         (for i from 0)
-        (setf (row-major-aref *the-puzzle* i) v)))
+        (setf (row-major-aref puzzle i) v))
+  puzzle)
 
+;; ** Testing the data input
 (prove:is 81 (length (read-puzzle)))
 
-;; TODO: Implement a simple print-puzzle function
+;; * Printing the puzzle
+(defun print-puzzle (puzzle i)
+  "Prints the current PUZZLE depending on step I."
+  (let ((size (array-dimension puzzle 0)))
+    (cond ((equal i 0) (format t "~&Initial puzzle:~%"))
+	  ((numberp i) (format t "~%~% Round: ~D~%" i))
+	  ((equal i 'Rätsel) (format t "~%New puzzle:~%"))
+	  (t (format t "~&Final state::~%")))
+    (format t " ~v@{~A~:*~}~%" (1- (* 6 size)) "-")
+    (iter 
+      (for i below size)
+      (iter 
+        (for j below size)
+        (format t "| ~3D " (aref puzzle i j)))
+      (format t "|~%"))
+    (format t " ~v@{~A~:*~}" (1- (* 6 size)) "-"))
+  i)  ; Returns the current step
+ 
+;; ** Testing the printing
+(prove:is 0 (print-puzzle (read-puzzle) 0))
 
 ;; * The predicate(s)
 
