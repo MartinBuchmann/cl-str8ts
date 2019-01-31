@@ -1,4 +1,4 @@
-;; Time-stamp: <2019-01-31 21:07:00 Martin>
+;; Time-stamp: <2019-01-31 21:17:11 Martin>
 ;; * str8ts.lisp
 ;; See Readme.org for more information
 ;;
