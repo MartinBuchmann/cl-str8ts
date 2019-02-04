@@ -6,6 +6,6 @@
   :license  "Public domain"
   :version "0.0.1"
   :serial t
-  :depends-on (#:alexandria #:prove #:iterate)
+  :depends-on (#:alexandria #:prove #:iterate #:log4cl)
   :components ((:file "package")
                (:file "str8ts")))

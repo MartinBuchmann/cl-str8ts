@@ -1,4 +1,4 @@
-;; Time-stamp: <2019-02-01 18:09:03 Martin>
+;; Time-stamp: <2019-02-02 17:47:33 Martin>
 ;; * str8ts.lisp
 ;; See Readme.org for more information
 ;;
@@ -14,10 +14,6 @@
   "A new type for the possible values."
   '(integer -9 10))
 
-(deftype candidates ()
-  "A new type for possible values of each puzzle field."
-  '(simple-array (bit) 9))
-
 ;; ** Testing the new types
 (prove:ok (typep 4 'value))
 (prove:ok (not (typep -10 'value)))
@@ -27,6 +23,8 @@
 ;; I don't know what is the best data structure yet but will start with an
 ;; 2D-array holding the lines and columns.
 (defvar *the-puzzle* (make-array (list 9 9) :element-type 'value))
+(defvar *the-candidates* (make-array (list 9 9) :element-type 'bit-vector
+                                                :initial-element #9*111111111))
 
 ;; * Read in a puzzle
 (defun read-puzzle (&optional (file #p"puzzles/2019-01-26-medium")
@@ -67,7 +65,7 @@ the given numbers and the empty fields are represented by 0.
 (prove:is 0 (print-puzzle (read-puzzle) 0))
 (prove:is t (print-puzzle (read-puzzle #p"puzzles/2019-01-26-solved") t))
 
-;; * The predicate(s)
+;; * The predicate
 ;;
 ;; In a first step I just check for empty fields.  Maybe I have to re-fine this
 ;; later...
@@ -84,7 +82,34 @@ the given numbers and the empty fields are represented by 0.
 (prove:ok (not (solvedp (read-puzzle))))
 
 ;; * Solving the puzzle
+;; ** Generating the candidates
+(defun toggle-candidate-bit (candidate field &aux (result (copy-seq field)))
+  "Toggles the bit for CANDIDATE in the FIELD of the puzzle."
+  (if (zerop (aref field candidate))
+      (setf (aref result candidate) 1)
+      (setf (aref result candidate) 0))
+  result)
+
+(prove:is #*1011 (toggle-candidate-bit 1 #*1111))
+
+(defun initialize (puzzle &aux (array-of-candidates
+                                       (make-array (list 9 9) :element-type 'bit-vector
+                                                              :initial-element #9*111111111)))
+  "Returns an array of possible candidates for each field of PUZZLE."
+  (iter
+    (for i below (array-total-size puzzle))
+    (log:info "I: ~D ~D" i (row-major-aref puzzle i))
+    (unless (or (zerop #2=(row-major-aref puzzle i))
+                (= 10 #2#))
+      (log:debug "C before: ~A"
+                 (row-major-aref array-of-candidates i))
+      (setf #3=(row-major-aref array-of-candidates i)
+            (toggle-candidate-bit (1- (abs #2#)) #3#))
+      (log:debug "C after: ~A"
+                 (row-major-aref array-of-candidates i))))
+  array-of-candidates)
 
 ;; * Testing
 
 (prove:finalize)
+
