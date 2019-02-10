@@ -7,7 +7,21 @@
 * Introduction
 
 I came across [[https://en.wikipedia.org/wiki/Str8ts][str8ts]] puzzles recently and want to implement a solver in Common
-lisp similar to my [[https://github.com/MartinBuchmann/binoxxo][binoxxo]] solver.
+Lisp similar to my [[https://github.com/MartinBuchmann/binoxxo][binoxxo]] solver. I am using basic ideas from [[http://norvig.com/sudoku.html][Peter Norvig's
+Soduko solver]] as implemented [[https://github.com/dimitri/sudoku][here]] or [[https://github.com/tkych/cl-sudoku][here]] in Common Lisp.
+
+While in a Sudoku puzzle the units are always the same for every puzzle, in
+str8ts the units have to be found for each puzzle due to varying the blocked
+fields and digits.
+
+I have chosen to encode an blocked field with =10= and a digit within a blocked
+field with a negative integer.  A puzzle is read from a text file with one
+puzzle per line given a integers from =-9= to =10= separated by white space.
+
+Load the program /when finished/ with:
+#+begin_src common-lisp
+(asdf:make :str8ts)
+#+end_src
 
 /to be continued.../
 
