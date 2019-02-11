@@ -1,4 +1,4 @@
-;; Time-stamp: <2019-02-10 19:38:26 Martin>
+;; Time-stamp: <2019-02-11 12:10:36 m.buchmann>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -243,8 +243,8 @@ the given numbers and the empty fields are represented by 0."
           (never (zerop (row-major-aref grid i))))))
 
 ;; ** Testing the predicate
-(prove:ok (solvedp (slot-value (make-puzzle #p"puzzles/2019-01-26-solved") 'grid)))
-(prove:ok (not (solvedp (slot-value (make-puzzle) 'grid))))
+(prove:ok (solvedp (make-puzzle #p"puzzles/2019-01-26-solved")))
+(prove:ok (not (solvedp (make-puzzle))))
 
 ;; * Solving the puzzle
 ;; ** Constrained propagation
