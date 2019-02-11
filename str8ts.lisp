@@ -1,4 +1,4 @@
-;; Time-stamp: <2019-02-11 12:10:36 m.buchmann>
+;; Time-stamp: <2019-02-11 13:49:29 m.buchmann>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -229,8 +229,9 @@ the given numbers and the empty fields are represented by 0."
 (prove:is 0 (print-puzzle (slot-value (make-puzzle) 'grid) 0))
 (prove:is t (print-puzzle (slot-value (make-puzzle #p"puzzles/2019-01-26-solved") 'grid) t))
 
-;; * The predicate
+;; * The predicates
 ;;
+;; ** Is the puzzle solved?
 ;; In a first step I just check for empty fields.  Maybe I have to re-fine this
 ;; later...
 
@@ -240,11 +241,46 @@ the given numbers and the empty fields are represented by 0."
   "Returns T if PUZZLE is completely solved."
   (with-slots (grid) puzzle
     (iter (for i below (array-total-size grid))
-          (never (zerop (row-major-aref grid i))))))
+      (never (zerop (row-major-aref grid i))))))
 
-;; ** Testing the predicate
+;; ** Is the sequence of fields valid?
+;;
+;; While the order may or is likely to be disturbed all digits within
+;; a subunit must be consecutive.
+(defun valid-subunit-p (sub-unit)
+  "Returns true if SUB-UNIT is identical to min..max as a set."
+  (flet ((sub-unit-aux (sub-unit)
+           ;; Because I have to scan for the minimum I will determine
+           ;; the length in the same task
+           (iter
+             (with min = 11) ; The maximum value should be 10 
+             (for i from 0)
+             (for obj in sub-unit)
+             (when (< obj min)
+               (setf min obj))
+             (finally (return (values i min))))))
+    (multiple-value-bind (len min)
+        (sub-unit-aux sub-unit)
+      (iter
+        (with indicator = (make-array len :element-type 'bit :initial-element 0))
+        (for obj in sub-unit)
+        (unless (< (- obj min) len)
+          ;; obj out of range
+          (return-from valid-subunit-p nil))
+        (if (zerop (aref indicator (- obj min)))
+            ;; obj is being seen for the 1st time; record that
+            (setf (aref indicator (- obj min)) 1)
+            ;; duplicate obj
+            (return-from valid-subunit-p nil)))
+      ;; all list elements are unique and in the right range;
+      ;; injectivity + same cardinality for finite sets => surjectivity
+      t)))
+
+;; ** Testing the predicates
 (prove:ok (solvedp (make-puzzle #p"puzzles/2019-01-26-solved")))
 (prove:ok (not (solvedp (make-puzzle))))
+(prove:ok (valid-subunit-p '(2 4 3 1)))
+(prove:ok (not (valid-subunit-p '(2 3 5 6))))
 
 ;; * Solving the puzzle
 ;; ** Constrained propagation
