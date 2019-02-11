@@ -1,4 +1,4 @@
-;; Time-stamp: <2019-02-11 13:49:29 m.buchmann>
+;; Time-stamp: <2019-02-19 20:26:15 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -170,16 +170,39 @@
   (with-slots (grid) puzzle
     (multiple-value-bind (r c)
         (list-units-containing puzzle row col)
-      (append r c))))
+      (iter
+        (for field in r)
+        ))))
 
-;; (append (remove-if-not (lambda (f) (= f col)) r :key #'caar)
-;;               (remove-if-not (lambda (f) (= f row)) c :key #'cadar))
-;; Für Feld 0 1 und
-;; ((0 . 0) (0 . 3) (0 . 4) (0 . 7) (0 . 8))
-;; ((1 . 1) (3 . 1) (4 . 1) (6 . 1) (7 . 1))
+;;; Auxiliary function to split a list as defined here
+;;; https://github.com/MartinBuchmann/99-lisp-problems/blob/master/17.lisp
+(defun split-at (count original-list)
+  (unless (or (null original-list) (minusp count) (>= count (length original-list)))
+    (list (subseq original-list 0 count)
+          (subseq original-list count))))
 
-;; --> ((((0 . 0) (0 . 1)?) ((0 . 3) (0 . 4)) ((0 . 7) (0 . 8)))
-;;      (((0 . 1)? (1 . 1)) ((3 . 1) (4 . 1)) ((6 . 1) (7 . 1))))
+(defun sub-units (units)
+  "Scan UNITS for sub-units."
+  (iter
+    (for (a . b) in units)
+    (for last-b previous b initially -1)
+    (for pos from 0)
+    (log:info "last-b: ~D b: ~D" last-b b)
+    (unless (= 1 (- b last-b))
+      (collecting pos))))
+
+(defun split-sub-units (units)
+  "Splits UNITS into its sub-units."
+  (iter
+    (with pos = (or (sub-units units) (list 0)))
+    (for p in pos)
+    (for last-p previous p)
+    (log:info "last-p: ~D" last-p)
+    (for (head tail) first (split-at p units) then (split-at last-p tail))
+    (log:info "head: ~A tail: ~A" head tail)
+    (when head
+      (collect head into result))
+    (finally (return (nconc result (list tail))))))
 
 (defmethod make-puzzle-units-array ((puzzle puzzle)
                                     &aux (units
