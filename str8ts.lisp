@@ -1,4 +1,4 @@
-;; Time-stamp: <2019-02-19 20:26:15 Martin>
+;; Time-stamp: <2019-02-18 14:10:33 m.buchmann>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -16,7 +16,7 @@
 (in-package #:str8ts)
 
 ;; Testing using prove
-(prove:plan 9)
+(prove:plan 13)
 
 ;; * Defining the data structures
 ;;
@@ -132,7 +132,7 @@
 ;; ** Generate the units of the puzzle
 ;;
 ;; Each puzzle has different units due to the blocked fields and str8ts puzzle
-;; have no boxes.
+;; have no boxes but sub-units.
 (defmethod list-units-containing ((puzzle puzzle) row col)
   "List the indexes of all units of a given position."
   (with-slots (grid) puzzle
@@ -153,6 +153,7 @@
                    (minusp (aref grid pr col)))
          (collect (cons pr col)))))))
 
+;; Is this needed? 
 (defmethod find-blocked-fields ((puzzle puzzle))
   "Returns a list of all blocked fields in PUZZLE."
   (with-slots (grid) puzzle
@@ -164,49 +165,53 @@
                      (floor i 9)
                    (cons row col)))))))
 
-;; TODO: Fix this!
+;; TODO: Added some more documentation and structure
 (defmethod find-sub-units ((puzzle puzzle) row col)
   "Returns lists of the sub-units for ROW and COL."
   (with-slots (grid) puzzle
     (multiple-value-bind (r c)
         (list-units-containing puzzle row col)
-      (iter
-        (for field in r)
-        ))))
+      (values (split-sub-rows r)
+              (split-sub-cols c)))))
 
-;;; Auxiliary function to split a list as defined here
-;;; https://github.com/MartinBuchmann/99-lisp-problems/blob/master/17.lisp
-(defun split-at (count original-list)
-  (unless (or (null original-list) (minusp count) (>= count (length original-list)))
-    (list (subseq original-list 0 count)
-          (subseq original-list count))))
+(defun split-sub-rows (row)
+  "Returns the sub-units of ROW."
+  (flet ((split-aux (l)
+           (iter (for (x . y) on l)
+                 (collect x into a)
+                 (when (and y (/= (cdar y) (1+ (cdr x))))
+                   (return (list a y)))      ; split here
+                 (finally (return (list a nil)))))) ; never splits
+    (iter (for (a b) first (split-aux row) then (split-aux b))
+          (collect a)
+          (while b))))  ; repeat splitting over them
 
-(defun sub-units (units)
-  "Scan UNITS for sub-units."
-  (iter
-    (for (a . b) in units)
-    (for last-b previous b initially -1)
-    (for pos from 0)
-    (log:info "last-b: ~D b: ~D" last-b b)
-    (unless (= 1 (- b last-b))
-      (collecting pos))))
+(defun split-sub-cols (col)
+  "Returns the sub-units of COL."
+  (flet ((split-aux (l)
+           (iter (for (x . y) on l)
+                 (collect x into a)
+                 (when (and y (/= (caar y) (1+ (car x))))
+                   (return (list a y)))      ; split here
+                 (finally (return (list a nil)))))) ; never splits
+    (iter (for (a b) first (split-aux col) then (split-aux b))
+          (collect a)
+          (while b))))  ; repeat splitting over them
 
-(defun split-sub-units (units)
-  "Splits UNITS into its sub-units."
-  (iter
-    (with pos = (or (sub-units units) (list 0)))
-    (for p in pos)
-    (for last-p previous p)
-    (log:info "last-p: ~D" last-p)
-    (for (head tail) first (split-at p units) then (split-at last-p tail))
-    (log:info "head: ~A tail: ~A" head tail)
-    (when head
-      (collect head into result))
-    (finally (return (nconc result (list tail))))))
+(defun in-sub-unit-p (sub-unit row col)
+  "Returns the sub-unit if (row . col) is part of SUB-UNIT."
+  ;; Out of bound indexes do not matter here and save further checking.
+  (let ((candidates (list (cons (1- row) col) (cons (1+ row) col) (cons row (1- col)) (cons row (1+ col)))))
+    (some (lambda (u) (member u sub-unit :test #'equalp)) candidates)))
 
-(defmethod make-puzzle-units-array ((puzzle puzzle)
-                                    &aux (units
-                                          (make-array '(9 9) :element-type 'list :initial-element nil)))
+;; ** Testing the sub-unit splitting
+(prove:is (split-sub-rows '((0 . 0) (0 . 3))) '(((0 . 0)) ((0 . 3))))
+(prove:is (split-sub-cols '((0 . 0) (3 . 0))) '(((0 . 0)) ((3 . 0))))
+
+;; TODO: Where does this function belong?
+(defmethod puzzle-units ((puzzle puzzle)
+                         &aux (units
+                               (make-array '(9 9) :element-type 'list :initial-element nil)))
   "Returns an array with all units of PUZZLE."
   (iter
     (for row below 9)
@@ -217,6 +222,23 @@
 		(list-units-containing puzzle row col)
 	      (list peers-row peers-col)))))
   units)
+
+;; TODO: Use alexandria:curry instead of lambda?
+;; TODO; Test this function further!
+(defmethod puzzle-sub-units ((puzzle puzzle)
+                             &aux (sub-units
+                                   (make-array '(9 9) :element-type 'list :initial-element nil)))
+  "Returns an array with all sub-units of PUZZLE."
+  (iter
+    (for row below 9)
+    (iter
+      (for col below 9)
+      (setf (aref sub-units row col)
+            (multiple-value-bind (su-row su-col)
+                (find-sub-units puzzle row col)
+              (remove-if-not (lambda (c) (in-sub-unit-p c row col))
+                             (append su-row su-col))))))
+  sub-units)
 
 (defun make-puzzle (&optional (file #p"puzzles/2019-01-26-medium"))
   "Make a str8ts puzzle from the given FILE.
