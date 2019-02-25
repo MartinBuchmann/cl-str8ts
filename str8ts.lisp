@@ -1,5 +1,5 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-02-23 16:26:25 Martin>
+;; Time-stamp: <2019-02-25 12:45:18 m.buchmann>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -17,7 +17,7 @@
 (in-package #:str8ts)
 
 ;; Testing using prove
-(prove:plan 13)
+(prove:plan 15)
 
 ;; * Defining the data structures
 ;;
@@ -40,12 +40,20 @@
 	 :initform (make-array '(9 9)
 			       :element-type 'value
 			       :initial-element 0)
-	 :initarg :grid)
+	 :initarg :grid
+         :accessor grid)
    (digits :documentation "All possible values for each field, as bits."
 	   :initform (make-array '(9 9)
 				 :element-type '(integer 0 #b111111111)
 				 :initial-element #b111111111)
 	   :initarg :digits)))
+
+;; *** The units and sub-units of the current puzzle
+(defvar *units* (make-array '(9 9) :element-type 'list :initial-element nil)
+  "The list of all possible units in a str8ts grid.")
+
+(defvar *sub-units* (make-array '(9 9) :element-type 'list :initial-element nil)
+  "list of all possible sub-units in a str8ts grid.")
 
 ;; * Error conditions
 ;;
@@ -157,6 +165,69 @@
 (defun unset-possible-value (possible-digits value)
   "return an integer representing POSSIBLE-DIGITS with VALUE unset"
   (logxor possible-digits (ash 1 (- value 1))))
+
+;; * Constrained propagation
+;;
+;; *** Eliminating the impossible digits
+(defmethod eliminate-value-in-sub-units ((puzzle puzzle) row col value)
+  (iter
+    (for su in (aref *sub-units* row col))
+    (for (r . c) in su)
+    (eliminate puzzle r c value)))
+
+(defmethod list-places-with-single-unit-solution ((puzzle puzzle) row col value)
+  (with-slots (digits) puzzle
+    (iter
+      (for unit in (aref *units* row col))
+      (nconcing
+       (destructuring-bind (n positions)
+	   (iter
+             (for (r . c) in unit)
+	     (when (only-possible-value-is? (aref digits r c) value)
+	       (count t into n)
+               (collect (cons r c) into p))
+	     (finally (return (list n p))))
+	 ;; Simply ignore n = 0 and solve it later
+	 (when (< 1 n)
+	   ;; If more than one place in that unit accepts only the
+	   ;; given value, that's a contradiction
+	   (error 'unit-contains-contradictory-solution))
+	 (when (= 1 n)
+	   (list (first positions))))))))
+
+(defmethod eliminate ((puzzle puzzle) row col value)
+  (with-slots (grid digits) puzzle
+    ;; If already unset, work is already done
+    (when (value-is-set? (aref digits row col) value)
+      ;; Eliminate the value from the set of possible digits
+      (let* ((possible-digits
+	       (unset-possible-value (aref digits row col) value)))
+	(setf (aref digits row col) possible-digits)
+
+	;; Now if we're left with a single possible value
+	(when (= 1 (count-remaining-possible-digits possible-digits))
+	  (let ((found-value (first-set-value possible-digits)))
+	    ;; Update the main grid
+	    (setf (aref grid row col) found-value)
+
+	    ;; Eliminate that value we just found in all peers
+	    (eliminate-value-in-sub-units puzzle row col found-value)))
+        ;; Now check if any unit has a single possible place for that value
+	(iter (for (r . c) in (list-places-with-single-unit-solution puzzle row col value))
+              (assign puzzle r c value))))))
+
+;; *** Assigning a value
+(defmethod assign ((puzzle puzzle) row col value)
+  (with-slots (grid digits) puzzle
+    (setf (aref grid row col) value)	; Assign the value to the grid 
+    (iter
+      (for other-value from 1 to 9)	; Eliminate the others digits
+      (unless (= other-value value)
+        ;; TODO: Fixing the bug in eliminate
+        ;; (eliminate puzzle row col other-value)
+        )))
+  puzzle)
+
 
 ;; * Read in a puzzle
 
@@ -275,13 +346,6 @@
                                  (append su-row su-col))))))
       (finally (return sub-units)))))
 
-;; *** The units and sub-units of the current puzzle
-(defvar *units* (make-array '(9 9) :element-type 'list :initial-element nil)
-  "The list of all possible units in a str8ts grid.")
-
-(defvar *sub-units* (make-array '(9 9) :element-type 'list :initial-element nil)
-  "list of all possible sub-units in a str8ts grid.")
-
 ;; ** Create a puzzle object.
 (defun make-puzzle (&optional (file #p"puzzles/2019-01-26-medium"))
   "Make a str8ts puzzle from the given FILE.
@@ -295,8 +359,11 @@ the given numbers and the empty fields are represented by 0."
     p))
 
 ;; *** Testing the data input
-(prove:is 81 (array-total-size (slot-value (make-puzzle) 'grid)))
-(prove:is 81 (array-total-size (slot-value (make-puzzle #p"puzzles/2019-01-26-solved") 'grid)))
+(prove:is 81 (array-total-size (grid (make-puzzle))))
+(prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-26-solved"))))
+(prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-29-hard"))))
+(prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-30-easy"))))
+
 
 ;; * Printing the puzzle
 (defmethod print-puzzle ((puzzle puzzle) i)
@@ -373,67 +440,6 @@ the given numbers and the empty fields are represented by 0."
 (prove:ok (not (valid-subunit-p '(2 3 5 6))))
 
 ;; * Solving the puzzle
-;; ** Constrained propagation
-;;
-;; *** Eliminating the impossible digits
-(defmethod eliminate-value-in-sub-units ((puzzle puzzle) row col value)
-  (iter
-    (for su in (aref *sub-units* row col))
-    (for (r . c) in su)
-    (eliminate puzzle r c value)))
-
-(defmethod list-places-with-single-unit-solution ((puzzle puzzle) row col value)
-  (with-slots (digits) puzzle
-    (iter
-      (for unit in (aref *units* row col))
-      (nconcing
-       (destructuring-bind (n positions)
-	   (iter
-             (for (r . c) in unit)
-	     (when (only-possible-value-is? (aref digits r c) value)
-	       (count t into n)
-               (collect (cons r c) into p))
-	     (finally (return (list n p))))
-	 ;; Simply ignore n = 0 and solve it later
-	 (when (< 1 n)
-	   ;; If more than one place in that unit accepts only the
-	   ;; given value, that's a contradiction
-	   (error 'unit-contains-contradictory-solution))
-	 (when (= 1 n)
-	   (list (first positions))))))))
-
-(defmethod eliminate ((puzzle puzzle) row col value)
-  (with-slots (grid digits) puzzle
-    ;; If already unset, work is already done
-    (when (value-is-set? (aref digits row col) value)
-      ;; Eliminate the value from the set of possible digits
-      (let* ((possible-digits
-	       (unset-possible-value (aref digits row col) value)))
-	(setf (aref digits row col) possible-digits)
-
-	;; Now if we're left with a single possible value
-	(when (= 1 (count-remaining-possible-digits possible-digits))
-	  (let ((found-value (first-set-value possible-digits)))
-	    ;; Update the main grid
-	    (setf (aref grid row col) found-value)
-
-	    ;; Eliminate that value we just found in all peers
-	    (eliminate-value-in-sub-units puzzle row col found-value)))
-        ;; Now check if any unit has a single possible place for that value
-	(iter (for (r . c) in (list-places-with-single-unit-solution puzzle row col value))
-              (assign puzzle r c value))))))
-
-;; *** Assigning a value
-(defmethod assign ((puzzle puzzle) row col value)
-  (with-slots (grid digits) puzzle
-    (setf (aref grid row col) value)	; Assign the value to the grid 
-    (iter
-      (for other-value from 1 to 9)	; Eliminate the others digits
-      (unless (= other-value value)
-        ;; TODO: Fixing the bug in eliminate
-        ;; (eliminate puzzle row col other-value)
-        )))
-  puzzle)
 
 ;; ** Depth-First search
 
