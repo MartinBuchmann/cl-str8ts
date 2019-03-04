@@ -1,5 +1,5 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-04 09:53:18 Martin>
+;; Time-stamp: <2019-03-04 22:03:17 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -15,9 +15,10 @@
 ;;
 ;; * The package
 (in-package #:str8ts)
+(annot:enable-annot-syntax)
 
 ;; Testing using prove
-(prove:plan 25)
+(prove:plan 32)
 
 ;; * Defining the data structures
 ;;
@@ -65,7 +66,6 @@
 ;; * Error conditions
 ;;
 ;; To track contradictions I have defined two conditions.
-;; TODO: Check if the conditions are really necessary.
 (define-condition empty-digits (condition) ())
 (define-condition unit-contains-contradictory-solution (condition) ())
 
@@ -110,6 +110,15 @@
 (defgeneric assign (puzzle row col value)
   (:documentation "Assign given VALUE in field (ROW . COL) of PUZZLE, eliminating all other
    digits for the given field and propagating that elimination to the sub-units."))
+
+(defgeneric find-field-with-fewest-possibilities (puzzle)
+  (:documentation "Returns a sorted list of the counts of possible values (count (row . col))."))
+
+(defgeneric valid-puzzle-p (puzzle)
+    (:documentation "Returns T if the un-solved puzzle is still valid."))
+
+(defgeneric search-puzzle (puzzle)
+  (:documentation "Using depth-first search and propagation, try all possible values."))
 
 ;; ** Copying the puzzle
 (defun copy-puzzle-array (array
@@ -250,7 +259,8 @@
     ;; Eliminate the value from the units of field.
     (iter (for unit in (aref *units* row col))
           (iter (for (r . c) in unit)
-                (eliminate puzzle r c value)))))
+                (eliminate puzzle r c value))))
+  puzzle)
 
 ;; * Read in a puzzle
 
@@ -270,6 +280,7 @@
       (for (values r c) = (floor i 9))
       (when (<= -9 v -1)
         ;; When -9 <= v <= -1 --> blocked field, remove v from the units of the field
+        (setf (aref digits r c) 0)
         (eliminate-value-in-units puzzle r c (abs v)))
       (when (<= 1 v 9)
         ;; Only when a proper value is given assign it.
@@ -287,15 +298,15 @@
      ;; unit with peers on the same row
      (iter
        (for pc below 9)
-       (unless (or (= pc col)                 ; The field itself
-                   (= 10 (aref grid row pc))) ; Blocked and empty fields
+       (unless (or (= 10  (aref grid row pc))
+                   (minusp (aref grid row pc))) ; Blocked and empty fields
          (collect (cons row pc))))
 
      ;; unit with peers on the same column
      (iter
        (for pr below 9)
-       (unless (or (= pr row)                 ; The field itself
-                   (= 10 (aref grid pr col))) ; Blocked and empty fields
+       (unless (or (= 10 (aref grid pr col))
+                   (minusp (aref grid pr col))) ; Blocked and empty fields
          (collect (cons pr col)))))))
 
 ;; Then we will split the units in the sub-units.
@@ -365,7 +376,7 @@
       (for row below 9)
       (iter
         (for col below 9)
-        (unless (or (= 10 #2=(aref grid row col)) (minusp #2#))
+        (unless (or (= 10 #1=(aref grid row col)) (minusp #1#))
           (setf (aref sub-units row col)
                 (multiple-value-bind (su-row su-col)
                     (find-sub-units puzzle row col)
@@ -437,13 +448,13 @@ the given numbers and the empty fields are represented by 0."
 (defun valid-subunit-p (sub-unit)
   "Returns true if SUB-UNIT is identical to min..max as a set."
   (flet ((sub-unit-aux (sub-unit)
-           ;; Because I have to scan for the minimum I will determine the length
-           ;; in the same task
+           ;; Because I have to scan for the minimum I will determine the
+           ;; length in the same task.
            (iter
-             (with min = 11) ; The maximum value should be 10 
+             (with min = 11)            ; The maximum value should be 10
              (for i from 0)
              (for obj in sub-unit)
-             (when (< obj min)
+             (when (and (not (zerop obj)) (< obj min))
                (setf min obj))
              (finally (return (values i min))))))
     (multiple-value-bind (len min)
@@ -451,31 +462,95 @@ the given numbers and the empty fields are represented by 0."
       (iter
         (with indicator = (make-array len :element-type 'bit :initial-element 0))
         (for obj in sub-unit)
-        (unless (< (- obj min) len)
+        (when (>= (- obj min) len)
           ;; obj out of range
           (return-from valid-subunit-p nil))
-        (if (zerop (aref indicator (- obj min)))
-            ;; obj is being seen for the 1st time; record that
-            (setf (aref indicator (- obj min)) 1)
-            ;; duplicate obj
-            (return-from valid-subunit-p nil)))
+        (cond
+          ((zerop obj)
+           ;; obj is 0, check next obj
+           nil)
+          ((zerop (aref indicator (- obj min)))
+           ;; obj is being seen for the 1st time; record that
+           (setf (aref indicator (- obj min)) 1))
+          (t
+           ;; duplicate obj
+           (return-from valid-subunit-p nil)))) 
       ;; all list elements are unique and in the right range;
       ;; injectivity + same cardinality for finite sets => surjectivity
       t)))
 
-;; TODO: Add a method to check whether or not a puzzle is valid. 
+(prove:ok (valid-subunit-p '(4 3 1 2)))
+(prove:ok (not (valid-subunit-p '(4 3 5 1))))
+(prove:ok (valid-subunit-p '(4 3 1 0)))
+(prove:ok (valid-subunit-p '(9 0 0 6)))
+(prove:ok (valid-subunit-p '(9 0 0 0)))
 
-;; ** Testing the predicates
+(defmethod valid-puzzle-p ((puzzle puzzle))
+  (with-slots (grid) puzzle
+    (every #'valid-subunit-p
+           (iter
+             (for i below 81)
+             (for su = (row-major-aref *sub-units* i))
+             (appending
+              (iter
+                (for u in su)
+                (collect
+                    (iter
+                      (for (r . c) in u)
+                      (collect (aref grid r c))))))))))
+
+  ;; ** Testing the predicates
 (prove:ok (solvedp (make-puzzle #p"puzzles/2019-01-26-solved")))
 (prove:ok (not (solvedp (make-puzzle))))
-(prove:ok (valid-subunit-p '(2 4 3 1)))
-(prove:ok (not (valid-subunit-p '(2 3 5 6))))
+(prove:ok (valid-puzzle-p (make-puzzle)))
+(prove:ok (valid-puzzle-p (make-puzzle #p"puzzles/2019-01-26-solved")))
 
 ;; * Solving the puzzle
 
-;; ** Depth-First search
+;; ** Depth-first search
+
+;; I will not implement further logic to reduce the number of possible values
+;; but try and check them all.
+
+(defmethod find-field-with-fewest-possibilities ((puzzle puzzle))
+  (with-slots (digits) puzzle
+    (destructuring-bind (n (row . col))
+	(first
+	 (sort
+	  (iter
+            (for r below 9)
+	    (nconcing (iter
+                        (for c below 9)
+		        (for n = (count-remaining-possible-digits (aref digits r c)))
+		        (when (< 1 n) 
+		          (collect (list n (cons r c)))))))
+	  (lambda (a b)
+	    (< (car a) (car b)))))
+      @ignore n
+      (cons row col))))
+
+(prove:is (find-field-with-fewest-possibilities (make-puzzle)) '(0 . 3) :test #'equalp)
+
+(defmethod search-puzzle ((puzzle puzzle))
+  (cond
+    ((null puzzle) nil)                 ; Earlier failure
+    ((solvedp puzzle) puzzle)           ; Solved
+    (t					; Search
+     ;; Chose the unfilled field with the fewest possibilities
+     (with-slots (digits) puzzle
+       (destructuring-bind (row . col)
+	   (find-field-with-fewest-possibilities puzzle)
+	 (some
+	  (lambda (c)
+	    (handler-case               ; Skip search errors and continue
+	        (search-puzzle (assign (copy-puzzle puzzle) row col c))
+	      (empty-digits () nil)
+	      (unit-contains-contradictory-solution () nil)))
+	  (list-all-possible-digits (aref digits row col))))))))
 
 ;; * Testing
 
+(prove:is (grid (make-puzzle #p"puzzles/2019-01-26-solved"))
+          (grid (search-puzzle (make-puzzle))))
 (prove:finalize)
 
