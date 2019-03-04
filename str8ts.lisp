@@ -1,5 +1,5 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-02-25 12:45:18 m.buchmann>
+;; Time-stamp: <2019-03-04 09:53:18 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -17,7 +17,7 @@
 (in-package #:str8ts)
 
 ;; Testing using prove
-(prove:plan 15)
+(prove:plan 25)
 
 ;; * Defining the data structures
 ;;
@@ -25,16 +25,16 @@
 ;; to 9. Blocked fields are encoded using =10= and blocked values negative
 ;; integers.
 
-;; ** A new type for the legal values
-;; of a field.
+;; ** A new type for the legal values of a field.
 (deftype value ()
   "A new type for the possible values."
   '(integer -9 10))
 
-;; ** A new class for the puzzle
-;; I am using a new class for the puzzle holding the current puzzle grid to
-;; solve and the possible values.  To save space the possible values are stored
-;; using the bits of an nine bit integer.
+;; ** A class for the puzzle
+;;
+;; I am using a class for the puzzle holding the current puzzle grid to solve
+;; and an array of the possible values.  To save space the possible values are
+;; stored using the bits of an nine bit integer.
 (defclass puzzle ()
   ((grid :documentation "The current str8ts grid."
 	 :initform (make-array '(9 9)
@@ -46,9 +46,16 @@
 	   :initform (make-array '(9 9)
 				 :element-type '(integer 0 #b111111111)
 				 :initial-element #b111111111)
-	   :initarg :digits)))
+	   :initarg :digits
+           :accessor digits)))
+
+;; A helper function for printing the bit fields
+(defun bits (value-field)
+  "Prints the value field as nine digits bit field."
+  (format nil "~9,'0b" value-field))
 
 ;; *** The units and sub-units of the current puzzle
+
 (defvar *units* (make-array '(9 9) :element-type 'list :initial-element nil)
   "The list of all possible units in a str8ts grid.")
 
@@ -58,12 +65,13 @@
 ;; * Error conditions
 ;;
 ;; To track contradictions I have defined two conditions.
+;; TODO: Check if the conditions are really necessary.
 (define-condition empty-digits (condition) ())
 (define-condition unit-contains-contradictory-solution (condition) ())
 
 ;; * The generic functions
 ;;
-;; I define generic function even if the methods have only purpose.
+;; I define generic function even if the methods have only one purpose.
 (defgeneric copy-puzzle (puzzle)
   (:documentation "Copy a given PUZZLE into a whole new puzzle and returns it."))
 
@@ -141,39 +149,54 @@
   "How many possible digits are left in there?"
   (logcount possible-digits))
 
+(prove:is (count-remaining-possible-digits '#b000000001) 1)
+(prove:is (count-remaining-possible-digits '#b101010100) 4)
+
 (defun first-set-value (possible-digits)
   "Return the index of the first set value in POSSIBLE-DIGITS."
   (+ 1 (floor (log possible-digits 2))))
 
-(defun only-possible-value-is? (possible-digits value)
-  "Return a generalized boolean which is true when the only value found in
-   POSSIBLE-DIGITS is VALUE"
+(prove:is (first-set-value '#b010000000) 8)
+
+(defun only-possible-value-is-p (possible-digits value)
+  "Returns T vaue found in POSSIBLE-DIGITS is VALUE."
   (and (logbitp (- value 1) possible-digits)
        (= 1 (logcount possible-digits))))
 
+(prove:ok (only-possible-value-is-p '#b010000000 8))
+(prove:ok (not (only-possible-value-is-p '#b001000000 8)))
+
 (defun list-all-possible-digits (possible-digits)
-  "Return a list of all possible digits to explore"
+  "Returns a list of all possible digits to explore."
   (loop for i from 1 to 9
      when (logbitp (- i 1) possible-digits)
      collect i))
 
-(defun value-is-set? (possible-digits value)
-  "Return a generalized boolean which is true when given VALUE is possible
-   in POSSIBLE-DIGITS"
+(prove:is (list-all-possible-digits '#b010101010) '(2 4 6 8))
+
+(defun value-is-set-p (possible-digits value)
+  "Returns T if VALUE is possible in POSSIBLE-DIGITS."
   (logbitp (- value 1) possible-digits))
 
+(prove:ok (value-is-set-p '#b010000000 8))
+
 (defun unset-possible-value (possible-digits value)
-  "return an integer representing POSSIBLE-DIGITS with VALUE unset"
+  "Returns an integer representing POSSIBLE-DIGITS with VALUE unset"
   (logxor possible-digits (ash 1 (- value 1))))
+
+(prove:is (unset-possible-value '#b111111111 5) '#b111101111)
 
 ;; * Constrained propagation
 ;;
 ;; *** Eliminating the impossible digits
-(defmethod eliminate-value-in-sub-units ((puzzle puzzle) row col value)
+;;
+(defmethod eliminate-value-in-units ((puzzle puzzle) row col value)
   (iter
-    (for su in (aref *sub-units* row col))
-    (for (r . c) in su)
-    (eliminate puzzle r c value)))
+    (for u in (aref *units* row col))
+    (log:debug "R: ~D C: ~D ~A" row col u)
+    (iter
+      (for (r . c) in u)
+      (eliminate puzzle r c value))))
 
 (defmethod list-places-with-single-unit-solution ((puzzle puzzle) row col value)
   (with-slots (digits) puzzle
@@ -183,7 +206,7 @@
        (destructuring-bind (n positions)
 	   (iter
              (for (r . c) in unit)
-	     (when (only-possible-value-is? (aref digits r c) value)
+	     (when (only-possible-value-is-p (aref digits r c) value)
 	       (count t into n)
                (collect (cons r c) into p))
 	     (finally (return (list n p))))
@@ -197,53 +220,59 @@
 
 (defmethod eliminate ((puzzle puzzle) row col value)
   (with-slots (grid digits) puzzle
-    ;; If already unset, work is already done
-    (when (value-is-set? (aref digits row col) value)
+    ;; Check if the value is already unset
+    (when (value-is-set-p (aref digits row col) value)
       ;; Eliminate the value from the set of possible digits
-      (let* ((possible-digits
-	       (unset-possible-value (aref digits row col) value)))
-	(setf (aref digits row col) possible-digits)
-
-	;; Now if we're left with a single possible value
-	(when (= 1 (count-remaining-possible-digits possible-digits))
-	  (let ((found-value (first-set-value possible-digits)))
-	    ;; Update the main grid
-	    (setf (aref grid row col) found-value)
-
-	    ;; Eliminate that value we just found in all peers
-	    (eliminate-value-in-sub-units puzzle row col found-value)))
+      (let ((possible-digits
+              (unset-possible-value (aref digits row col) value)))
+        (setf (aref digits row col) possible-digits)
+        ;; Now if we're left with a single possible value
+        (when (and (<= 0 (aref grid row col)) (= 1 (count-remaining-possible-digits possible-digits)))
+          (let ((found-value (first-set-value possible-digits)))
+            ;; Update the main grid
+            (setf (aref grid row col) found-value)
+            ;; Eliminate that value we just found in all peers
+            (eliminate-value-in-units puzzle row col found-value)
+            ))
         ;; Now check if any unit has a single possible place for that value
-	(iter (for (r . c) in (list-places-with-single-unit-solution puzzle row col value))
+        (iter (for (r . c) in (list-places-with-single-unit-solution puzzle row col value))
               (assign puzzle r c value))))))
 
 ;; *** Assigning a value
 (defmethod assign ((puzzle puzzle) row col value)
   (with-slots (grid digits) puzzle
-    (setf (aref grid row col) value)	; Assign the value to the grid 
+    ;; When 1 <= v <= 9 --> Given value, eliminate the other digits for this field
+    (setf (aref grid row col) value)
     (iter
-      (for other-value from 1 to 9)	; Eliminate the others digits
+      (for other-value from 1 to 9) ; Eliminate the others digits
       (unless (= other-value value)
-        ;; TODO: Fixing the bug in eliminate
-        ;; (eliminate puzzle row col other-value)
-        )))
-  puzzle)
-
+        (eliminate puzzle row col other-value)))
+    ;; Eliminate the value from the units of field.
+    (iter (for unit in (aref *units* row col))
+          (iter (for (r . c) in unit)
+                (eliminate puzzle r c value)))))
 
 ;; * Read in a puzzle
 
 (defmethod read-grid ((puzzle puzzle) &optional (file #p"puzzles/2019-01-26-medium"))
   (with-slots (grid digits) puzzle
-    ;; Filling the grid
+    ;; Filling the grid and determining the units/sub-units
     (iter
       (for v in-file file)
       (for i from 0)
       (setf (row-major-aref grid i) v))
-    ;; Assigning the digits
+    (setq *units* (puzzle-units puzzle)
+          *sub-units* (puzzle-sub-units puzzle))
+    ;; When the units are known assigning the digits.
     (iter
-      (for f below 81)
-      (for v = (row-major-aref grid f))
-      (for (values r c) = (floor f 9))
-      (when (<= -9 v 9)
+      (for i below 81)
+      (for v = (row-major-aref grid i))
+      (for (values r c) = (floor i 9))
+      (when (<= -9 v -1)
+        ;; When -9 <= v <= -1 --> blocked field, remove v from the units of the field
+        (eliminate-value-in-units puzzle r c (abs v)))
+      (when (<= 1 v 9)
+        ;; Only when a proper value is given assign it.
         (assign puzzle r c v)))
     puzzle))
 
@@ -258,17 +287,15 @@
      ;; unit with peers on the same row
      (iter
        (for pc below 9)
-       (unless (or (= pc col)                ; The field itself
-                   (= 10 (aref grid row pc)) ; Blocked fields
-                   (minusp (aref grid row pc)))
+       (unless (or (= pc col)                 ; The field itself
+                   (= 10 (aref grid row pc))) ; Blocked and empty fields
          (collect (cons row pc))))
 
      ;; unit with peers on the same column
      (iter
        (for pr below 9)
-       (unless (or (= pr row)                ; The field itself
-                   (= 10 (aref grid pr col)) ; Blocked fields
-                   (minusp (aref grid pr col)))
+       (unless (or (= pr row)                 ; The field itself
+                   (= 10 (aref grid pr col))) ; Blocked and empty fields
          (collect (cons pr col)))))))
 
 ;; Then we will split the units in the sub-units.
@@ -316,7 +343,7 @@
       (for row below 9)
       (iter
         (for col below 9)
-        (unless (or (= 10 #1=(aref grid row col)) (minusp #1#))
+        (unless (= 10 (aref grid row col))
           (setf (aref units row col)
 	        (multiple-value-bind (peers-row peers-col)
 		    (list-units-containing puzzle row col)
@@ -354,8 +381,6 @@ A 10 indicates a black field, negative numbers are numbers within black fields,
 the given numbers and the empty fields are represented by 0."
   (let ((p (make-instance 'puzzle)))
     (read-grid p file)
-    (setq *units* (puzzle-units p)
-          *sub-units* (puzzle-sub-units p))
     p))
 
 ;; *** Testing the data input
@@ -364,6 +389,11 @@ the given numbers and the empty fields are represented by 0."
 (prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-29-hard"))))
 (prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-30-easy"))))
 
+;; *** Testing the elimination
+(let ((p (make-puzzle))) ; Using the default puzzle
+  (prove:is (bits (aref (digits p) 0 0)) "011111010")
+  (eliminate p 0 0 4)
+  (prove:is (bits (aref (digits p) 0 0)) "011110010"))
 
 ;; * Printing the puzzle
 (defmethod print-puzzle ((puzzle puzzle) i)
@@ -432,6 +462,8 @@ the given numbers and the empty fields are represented by 0."
       ;; all list elements are unique and in the right range;
       ;; injectivity + same cardinality for finite sets => surjectivity
       t)))
+
+;; TODO: Add a method to check whether or not a puzzle is valid. 
 
 ;; ** Testing the predicates
 (prove:ok (solvedp (make-puzzle #p"puzzles/2019-01-26-solved")))
