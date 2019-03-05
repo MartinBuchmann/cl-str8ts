@@ -1,12 +1,12 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-05 11:14:52 Martin>
+;; Time-stamp: <2019-03-05 21:02:39 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
 ;;
 ;; Author: Martin Buchmann <Martin.Buchmann@gmail.com>
 ;; GIT: https://github.com/MartinBuchmann/cl-str8ts
-;; Version: 1.0
+;; Version: 1.1
 ;; Created: 2019-02-10
 ;; Keywords: common-lisp str8ts solver
 ;; Licence: WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/

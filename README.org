@@ -76,6 +76,24 @@ Final state:
 Puzzle solved in 1.911 seconds.
 #+end_src
 
+* Drawing puzzles
+
+Thanks to the wonderful [[https://www.xach.com/lisp/vecto/][vecto]] package the puzzles can also be drawn instead of
+just print them to the =REPL=.
+
+#+begin_src common-lisp
+(draw-puzzle (make-puzzle) #p"puzzle.png")
+(draw-puzzle (search-puzzle (make-puzzle) 0) "solved.png")
+#+end_src
+
+** Initial puzzle 
+
+[[file:puzzle.png][Initial puzzle]]
+
+** Solved puzzle
+
+[[file:solved.png][Solved puzzle]]
+
 * Acknowledgment
 
 I found great help at [[https://stackoverflow.com/questions/tagged/common-lisp][Stackoverflow]] for [[https://stackoverflow.com/questions/54620566/how-to-check-if-all-numbers-in-a-list-are-steadily-increasing][some]] [[https://stackoverflow.com/questions/54670901/splitting-a-list-of-a-lists-into-sub-lists][detail]] problems which is gratefully
