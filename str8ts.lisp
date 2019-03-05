@@ -1,12 +1,12 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-04 22:03:17 Martin>
+;; Time-stamp: <2019-03-05 09:43:35 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
 ;;
 ;; Author: Martin Buchmann <Martin.Buchmann@gmail.com>
 ;; GIT: https://github.com/MartinBuchmann/cl-str8ts
-;; Version: 0.1
+;; Version: 0.9
 ;; Created: 2019-02-10
 ;; Keywords: common-lisp str8ts solver
 ;; Licence: WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/
@@ -18,7 +18,7 @@
 (annot:enable-annot-syntax)
 
 ;; Testing using prove
-(prove:plan 32)
+(prove:plan 34)
 
 ;; * Defining the data structures
 ;;
@@ -63,10 +63,9 @@
 (defvar *sub-units* (make-array '(9 9) :element-type 'list :initial-element nil)
   "list of all possible sub-units in a str8ts grid.")
 
-;; * Error conditions
+;; *** Error conditions
 ;;
-;; To track contradictions I have defined two conditions.
-(define-condition empty-digits (condition) ())
+;; To track contradictions I define a condition.
 (define-condition unit-contains-contradictory-solution (condition) ())
 
 ;; * The generic functions
@@ -265,6 +264,11 @@
 ;; * Read in a puzzle
 
 (defmethod read-grid ((puzzle puzzle) &optional (file #p"puzzles/2019-01-26-medium"))
+  ;; A puzzle consists of 81 fields (9x9) where each field can take a value from =1=
+  ;; to =9=. Blocked fields are encoded using =10= and blocked values negative
+  ;; integers.
+  ;;
+  ;; The puzzle is given as one line per file. 
   (with-slots (grid digits) puzzle
     ;; Filling the grid and determining the units/sub-units
     (iter
@@ -421,7 +425,7 @@ the given numbers and the empty fields are represented by 0."
           (for j below size)
           (format t "| ~3D " (aref grid i j)))
         (format t "|~%"))
-      (format t " ~v@{~A~:*~}" (1- (* 6 size)) "-"))
+      (format t " ~v@{~A~:*~}~%" (1- (* 6 size)) "-"))
     i))   ; Returns the current step
  
 ;; ** Testing the printing
@@ -534,6 +538,7 @@ the given numbers and the empty fields are represented by 0."
 (defmethod search-puzzle ((puzzle puzzle))
   (cond
     ((null puzzle) nil)                 ; Earlier failure
+    ((not (valid-puzzle-p puzzle)) nil) ; Invalid puzzle
     ((solvedp puzzle) puzzle)           ; Solved
     (t					; Search
      ;; Chose the unfilled field with the fewest possibilities
@@ -541,16 +546,48 @@ the given numbers and the empty fields are represented by 0."
        (destructuring-bind (row . col)
 	   (find-field-with-fewest-possibilities puzzle)
 	 (some
-	  (lambda (c)
+	  (lambda (candidate)
 	    (handler-case               ; Skip search errors and continue
-	        (search-puzzle (assign (copy-puzzle puzzle) row col c))
-	      (empty-digits () nil)
+	        (search-puzzle (assign (copy-puzzle puzzle) row col candidate))
 	      (unit-contains-contradictory-solution () nil)))
 	  (list-all-possible-digits (aref digits row col))))))))
 
+;; ** Solving a given puzzle
+
+;; *** Determine the timing
+
+;; Calculates how long the evaluation of the body forms, i.e. the solving of
+;; the puzzle takes.
+;; Taken from https://github.com/dimitri/sudoku
+(defmacro timing (&body forms)
+  "Return both how much real time was spend in body and its result"
+  (let ((start (gensym))
+	(end (gensym))
+	(result (gensym)))
+    `(let* ((,start (get-internal-real-time))
+	    (,result (progn ,@forms))
+	    (,end (get-internal-real-time)))
+       (values ,result (/ (- ,end ,start) internal-time-units-per-second)))))
+
+
+(defmethod solve-puzzle (file)
+  "Solves the puzzle given in FILE.
+
+See function read-grid for the format."
+  (let ((p (make-puzzle file)))
+    (print-puzzle p 0)
+    (multiple-value-bind (puzzle time)
+        (timing (search-puzzle p))
+      (print-puzzle puzzle t)
+      (format t "Puzzle solved in ~,3F seconds." time))))
+
 ;; * Testing
+;; TODO: Put all tests in a separate file.
 
 (prove:is (grid (make-puzzle #p"puzzles/2019-01-26-solved"))
-          (grid (search-puzzle (make-puzzle))))
+          (grid (search-puzzle (make-puzzle))) :test #'equalp)
+(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-29-hard")))
+(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-30-easy")))
+
 (prove:finalize)
 
