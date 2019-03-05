@@ -6,23 +6,81 @@
 
 * Introduction
 
-I came across [[https://en.wikipedia.org/wiki/Str8ts][str8ts]] puzzles recently and want to implement a solver in Common
-Lisp similar to my [[https://github.com/MartinBuchmann/binoxxo][binoxxo]] solver. I am using basic ideas from [[http://norvig.com/sudoku.html][Peter Norvig's
-Soduko solver]] as implemented [[https://github.com/dimitri/sudoku][here]] or [[https://github.com/tkych/cl-sudoku][here]] in Common Lisp.
+I came across [[https://en.wikipedia.org/wiki/Str8ts][str8ts]] puzzles recently and +want to implement+ have implemented a
+solver in *Common Lisp* similar to my [[https://github.com/MartinBuchmann/binoxxo][binoxxo]] solver. I am using basic ideas from
+[[http://norvig.com/sudoku.html][Peter Norvig's Soduko solver]] as implemented [[https://github.com/dimitri/sudoku][here]] or [[https://github.com/tkych/cl-sudoku][here]] in Common Lisp.
+
+* Encoding the puzzle
 
 While in a Sudoku puzzle the units are always the same for every puzzle, in
 str8ts the units have to be found for each puzzle due to varying the blocked
 fields and digits.
 
-I have chosen to encode an blocked field with =10= and a digit within a blocked
+I have chosen to encode a blocked field with =10= and a digit within a blocked
 field with a negative integer.  A puzzle is read from a text file with one
 puzzle per line given a integers from =-9= to =10= separated by white space.
 
-Load the program /when finished/ with:
+* The algorithm
+
+I am sure there are certain things which could be improved with respect to
+performance. I have chosen to store the puzzle itself in a two-dimensional array
+allowing to access the fields in a straight-forward way.  The calculation of the
+=units= and =sub-units= is not optimized for space or speed. I found the usage
+of lists of lists pretty straight-forward during implementation and am pretty
+happy with it.
+
+After reading the puzzle from the file for each field the impossible digits are
+eliminated using =assign= and =eliminate=. Then for the field with the least
+possible digits the next step is generated and further checked using
+=search-puzzle= and =valid-puzzle-p= until =solvedp= signals that the puzzle is
+solved.
+
+* Loading and running
+
+Load and test the program with:
 #+begin_src common-lisp
 (asdf:make :str8ts)
+(asdf:test-system :str8ts)
 #+end_src
 
-/to be continued.../
+See the directory =puzzles= for the given puzzles or add more yourself.
+
+To solve a puzzle use =solve-puzzle=
+#+begin_src common-lisp
+(solve-puzzle #p"puzzles/2019-01-29-hard")
+
+Initial puzzle:
+ -----------------------------------------------------
+|  10 |   0 |   0 |  -8 |   4 |   0 |   0 |   0 |  10 |
+|  10 |   0 |   0 |  -1 |   0 |   0 |  10 |   0 |   9 |
+|   0 |   0 |   2 |  10 |   0 |   0 |  -7 |   0 |   0 |
+|   0 |   0 |  10 |   0 |   0 |  10 |   0 |   0 |  10 |
+|  10 |   0 |   0 |   0 |   0 |   0 |   0 |   0 |  10 |
+|  10 |   0 |   0 |  10 |   0 |   0 |  -9 |   0 |   2 |
+|   7 |   0 |  -4 |   0 |   0 |  10 |   0 |   1 |   0 |
+|   0 |   0 |  -5 |   0 |   0 |  10 |   0 |   0 |  -6 |
+|  10 |   0 |   0 |   0 |   0 |  -2 |   0 |   0 |  10 |
+ -----------------------------------------------------
+Final state:
+ -----------------------------------------------------
+|  10 |   2 |   1 |  -8 |   4 |   5 |   6 |   7 |  10 |
+|  10 |   4 |   3 |  -1 |   7 |   6 |  10 |   8 |   9 |
+|   3 |   1 |   2 |  10 |   5 |   4 |  -7 |   9 |   8 |
+|   4 |   3 |  10 |   2 |   1 |  10 |   5 |   6 |  10 |
+|  10 |   6 |   7 |   3 |   2 |   8 |   4 |   5 |  10 |
+|  10 |   5 |   6 |  10 |   8 |   7 |  -9 |   3 |   2 |
+|   7 |   8 |  -4 |   5 |   6 |  10 |   2 |   1 |   3 |
+|   8 |   9 |  -5 |   4 |   3 |  10 |   1 |   2 |  -6 |
+|  10 |   7 |   8 |   6 |   9 |  -2 |   3 |   4 |  10 |
+ -----------------------------------------------------
+Puzzle solved in 1.911 seconds.
+#+end_src
+
+* Acknowledgment
+
+I found great help at [[https://stackoverflow.com/questions/tagged/common-lisp][Stackoverflow]] for [[https://stackoverflow.com/questions/54620566/how-to-check-if-all-numbers-in-a-list-are-steadily-increasing][some]] [[https://stackoverflow.com/questions/54670901/splitting-a-list-of-a-lists-into-sub-lists][detail]] problems which is gratefully
+acknowledged.
+
+
 
 

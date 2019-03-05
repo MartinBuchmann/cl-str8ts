@@ -1,5 +1,5 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-05 10:06:09 Martin>
+;; Time-stamp: <2019-03-05 10:50:44 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -216,6 +216,7 @@
               (assign puzzle r c value))))))
 
 ;; *** Assigning a value
+;; TODO: Check if 2019-01-28-easy is also solvable.
 (defmethod assign ((puzzle puzzle) row col value)
   (with-slots (grid digits) puzzle
     ;; When 1 <= v <= 9 --> Given value, eliminate the other digits for this field
@@ -369,7 +370,6 @@ the given numbers and the empty fields are represented by 0."
     (let ((size (array-dimension grid 0)))
       (cond ((equal i 0) (format t "~&Initial puzzle:~%"))
 	    ((numberp i) (format t "~%~% Round: ~D~%" i))
-	    ((equal i 'Rätsel) (format t "~%New puzzle:~%"))
 	    (t (format t "~&Final state:~%")))
       (format t " ~v@{~A~:*~}~%" (1- (* 6 size)) "-")
       (iter 
