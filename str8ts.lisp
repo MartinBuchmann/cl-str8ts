@@ -1,12 +1,12 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-05 09:43:35 Martin>
+;; Time-stamp: <2019-03-05 10:06:09 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
 ;;
 ;; Author: Martin Buchmann <Martin.Buchmann@gmail.com>
 ;; GIT: https://github.com/MartinBuchmann/cl-str8ts
-;; Version: 0.9
+;; Version: 0.91
 ;; Created: 2019-02-10
 ;; Keywords: common-lisp str8ts solver
 ;; Licence: WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/
@@ -16,9 +16,6 @@
 ;; * The package
 (in-package #:str8ts)
 (annot:enable-annot-syntax)
-
-;; Testing using prove
-(prove:plan 34)
 
 ;; * Defining the data structures
 ;;
@@ -134,20 +131,6 @@
 		  :grid (copy-puzzle-array grid)
 		  :digits (copy-puzzle-array digits))))
 
-;; ** Testing the new types
-(prove:ok (typep 4 'value))
-(prove:ok (not (typep -10 'value)))
-(prove:is (slot-value (make-instance 'puzzle) 'grid)
-          '#2A((0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)
-               (0 0 0 0 0 0 0 0 0)) :test #'equalp)
-
 ;; ** Handling the bit-vector representation
 ;;
 ;; Taken from:
@@ -157,22 +140,14 @@
   "How many possible digits are left in there?"
   (logcount possible-digits))
 
-(prove:is (count-remaining-possible-digits '#b000000001) 1)
-(prove:is (count-remaining-possible-digits '#b101010100) 4)
-
 (defun first-set-value (possible-digits)
   "Return the index of the first set value in POSSIBLE-DIGITS."
   (+ 1 (floor (log possible-digits 2))))
-
-(prove:is (first-set-value '#b010000000) 8)
 
 (defun only-possible-value-is-p (possible-digits value)
   "Returns T vaue found in POSSIBLE-DIGITS is VALUE."
   (and (logbitp (- value 1) possible-digits)
        (= 1 (logcount possible-digits))))
-
-(prove:ok (only-possible-value-is-p '#b010000000 8))
-(prove:ok (not (only-possible-value-is-p '#b001000000 8)))
 
 (defun list-all-possible-digits (possible-digits)
   "Returns a list of all possible digits to explore."
@@ -180,19 +155,13 @@
      when (logbitp (- i 1) possible-digits)
      collect i))
 
-(prove:is (list-all-possible-digits '#b010101010) '(2 4 6 8))
-
 (defun value-is-set-p (possible-digits value)
   "Returns T if VALUE is possible in POSSIBLE-DIGITS."
   (logbitp (- value 1) possible-digits))
 
-(prove:ok (value-is-set-p '#b010000000 8))
-
 (defun unset-possible-value (possible-digits value)
   "Returns an integer representing POSSIBLE-DIGITS with VALUE unset"
   (logxor possible-digits (ash 1 (- value 1))))
-
-(prove:is (unset-possible-value '#b111111111 5) '#b111101111)
 
 ;; * Constrained propagation
 ;;
@@ -345,10 +314,6 @@
           (collect a)
           (while b))))  ; repeat splitting over them
 
-;; *** Testing the sub-unit splitting
-(prove:is (split-sub-rows '((0 . 0) (0 . 3))) '(((0 . 0)) ((0 . 3))))
-(prove:is (split-sub-cols '((0 . 0) (3 . 0))) '(((0 . 0)) ((3 . 0))))
-
 ;; ** Generate the units and sub-units of the whole puzzle
 
 (defmethod puzzle-units ((puzzle puzzle))
@@ -398,18 +363,6 @@ the given numbers and the empty fields are represented by 0."
     (read-grid p file)
     p))
 
-;; *** Testing the data input
-(prove:is 81 (array-total-size (grid (make-puzzle))))
-(prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-26-solved"))))
-(prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-29-hard"))))
-(prove:is 81 (array-total-size (grid (make-puzzle #p"puzzles/2019-01-30-easy"))))
-
-;; *** Testing the elimination
-(let ((p (make-puzzle))) ; Using the default puzzle
-  (prove:is (bits (aref (digits p) 0 0)) "011111010")
-  (eliminate p 0 0 4)
-  (prove:is (bits (aref (digits p) 0 0)) "011110010"))
-
 ;; * Printing the puzzle
 (defmethod print-puzzle ((puzzle puzzle) i)
   (with-slots (grid) puzzle
@@ -428,10 +381,6 @@ the given numbers and the empty fields are represented by 0."
       (format t " ~v@{~A~:*~}~%" (1- (* 6 size)) "-"))
     i))   ; Returns the current step
  
-;; ** Testing the printing
-(prove:is 0 (print-puzzle (make-puzzle) 0))
-(prove:is t (print-puzzle (make-puzzle #p"puzzles/2019-01-26-solved") t))
-
 ;; * The predicates
 ;;
 ;; ** Is the puzzle solved?
@@ -483,12 +432,6 @@ the given numbers and the empty fields are represented by 0."
       ;; injectivity + same cardinality for finite sets => surjectivity
       t)))
 
-(prove:ok (valid-subunit-p '(4 3 1 2)))
-(prove:ok (not (valid-subunit-p '(4 3 5 1))))
-(prove:ok (valid-subunit-p '(4 3 1 0)))
-(prove:ok (valid-subunit-p '(9 0 0 6)))
-(prove:ok (valid-subunit-p '(9 0 0 0)))
-
 (defmethod valid-puzzle-p ((puzzle puzzle))
   (with-slots (grid) puzzle
     (every #'valid-subunit-p
@@ -502,12 +445,6 @@ the given numbers and the empty fields are represented by 0."
                     (iter
                       (for (r . c) in u)
                       (collect (aref grid r c))))))))))
-
-  ;; ** Testing the predicates
-(prove:ok (solvedp (make-puzzle #p"puzzles/2019-01-26-solved")))
-(prove:ok (not (solvedp (make-puzzle))))
-(prove:ok (valid-puzzle-p (make-puzzle)))
-(prove:ok (valid-puzzle-p (make-puzzle #p"puzzles/2019-01-26-solved")))
 
 ;; * Solving the puzzle
 
@@ -532,8 +469,6 @@ the given numbers and the empty fields are represented by 0."
 	    (< (car a) (car b)))))
       @ignore n
       (cons row col))))
-
-(prove:is (find-field-with-fewest-possibilities (make-puzzle)) '(0 . 3) :test #'equalp)
 
 (defmethod search-puzzle ((puzzle puzzle))
   (cond
@@ -581,13 +516,4 @@ See function read-grid for the format."
       (print-puzzle puzzle t)
       (format t "Puzzle solved in ~,3F seconds." time))))
 
-;; * Testing
-;; TODO: Put all tests in a separate file.
-
-(prove:is (grid (make-puzzle #p"puzzles/2019-01-26-solved"))
-          (grid (search-puzzle (make-puzzle))) :test #'equalp)
-(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-29-hard")))
-(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-30-easy")))
-
-(prove:finalize)
 
