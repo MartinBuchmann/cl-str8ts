@@ -1,12 +1,12 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-05 10:50:44 Martin>
+;; Time-stamp: <2019-03-05 11:14:52 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
 ;;
 ;; Author: Martin Buchmann <Martin.Buchmann@gmail.com>
 ;; GIT: https://github.com/MartinBuchmann/cl-str8ts
-;; Version: 0.91
+;; Version: 1.0
 ;; Created: 2019-02-10
 ;; Keywords: common-lisp str8ts solver
 ;; Licence: WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/
@@ -113,7 +113,7 @@
 (defgeneric valid-puzzle-p (puzzle)
     (:documentation "Returns T if the un-solved puzzle is still valid."))
 
-(defgeneric search-puzzle (puzzle)
+(defgeneric search-puzzle (puzzle step)
   (:documentation "Using depth-first search and propagation, try all possible values."))
 
 ;; ** Copying the puzzle
@@ -216,7 +216,6 @@
               (assign puzzle r c value))))))
 
 ;; *** Assigning a value
-;; TODO: Check if 2019-01-28-easy is also solvable.
 (defmethod assign ((puzzle puzzle) row col value)
   (with-slots (grid digits) puzzle
     ;; When 1 <= v <= 9 --> Given value, eliminate the other digits for this field
@@ -384,11 +383,7 @@ the given numbers and the empty fields are represented by 0."
 ;; * The predicates
 ;;
 ;; ** Is the puzzle solved?
-;; In a first step I just check for empty fields.  Maybe I have to re-fine this
-;; later...
 
-;; Using this predicate I have to make sure that the logic of filling the puzzle
-;; is correct.
 (defmethod solvedp ((puzzle puzzle))
   (with-slots (grid) puzzle
     (iter (for i below (array-total-size grid))
@@ -452,7 +447,6 @@ the given numbers and the empty fields are represented by 0."
 
 ;; I will not implement further logic to reduce the number of possible values
 ;; but try and check them all.
-
 (defmethod find-field-with-fewest-possibilities ((puzzle puzzle))
   (with-slots (digits) puzzle
     (destructuring-bind (n (row . col))
@@ -470,20 +464,21 @@ the given numbers and the empty fields are represented by 0."
       @ignore n
       (cons row col))))
 
-(defmethod search-puzzle ((puzzle puzzle))
+(defmethod search-puzzle ((puzzle puzzle) step)
   (cond
     ((null puzzle) nil)                 ; Earlier failure
     ((not (valid-puzzle-p puzzle)) nil) ; Invalid puzzle
     ((solvedp puzzle) puzzle)           ; Solved
     (t					; Search
      ;; Chose the unfilled field with the fewest possibilities
+     (log:debug "Level: ~D" step)
      (with-slots (digits) puzzle
        (destructuring-bind (row . col)
 	   (find-field-with-fewest-possibilities puzzle)
 	 (some
 	  (lambda (candidate)
 	    (handler-case               ; Skip search errors and continue
-	        (search-puzzle (assign (copy-puzzle puzzle) row col candidate))
+	        (search-puzzle (assign (copy-puzzle puzzle) row col candidate) (1+ step))
 	      (unit-contains-contradictory-solution () nil)))
 	  (list-all-possible-digits (aref digits row col))))))))
 
@@ -512,7 +507,7 @@ See function read-grid for the format."
   (let ((p (make-puzzle file)))
     (print-puzzle p 0)
     (multiple-value-bind (puzzle time)
-        (timing (search-puzzle p))
+        (timing (search-puzzle p 0))
       (print-puzzle puzzle t)
       (format t "Puzzle solved in ~,3F seconds." time))))
 

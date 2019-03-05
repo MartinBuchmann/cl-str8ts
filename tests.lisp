@@ -1,7 +1,7 @@
 (in-package :str8ts)
 
 ;; * Testing using prove
-(prove:plan 35)
+(prove:plan 38)
 
 ;; ** Testing the new types
 (prove:ok (typep 4 'value))
@@ -70,9 +70,13 @@
 (prove:is (find-field-with-fewest-possibilities (make-puzzle)) '(0 . 3) :test #'equalp)
 
 (prove:is (grid (make-puzzle #p"puzzles/2019-01-26-solved"))
-          (grid (search-puzzle (make-puzzle))) :test #'equalp)
-(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-29-hard")))
-(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-30-easy")))
+          (grid (search-puzzle (make-puzzle) 0)) :test #'equalp)
+(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-29-hard") 0))
+(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-30-easy") 0))
+(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-28-easy") 0))
+(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-01-31-medium") 0))
+(prove:ok (search-puzzle (make-puzzle #p"puzzles/2019-02-04-hard") 0))
+
 
 ;; * Reporting the results
 (prove:finalize)
