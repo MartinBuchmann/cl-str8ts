@@ -1,17 +1,17 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-05 21:02:39 Martin>
+;; Time-stamp: <2019-03-06 11:26:00 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
 ;;
 ;; Author: Martin Buchmann <Martin.Buchmann@gmail.com>
 ;; GIT: https://github.com/MartinBuchmann/cl-str8ts
-;; Version: 1.1
+;; Version: 1.2
 ;; Created: 2019-02-10
 ;; Keywords: common-lisp str8ts solver
 ;; Licence: WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/
 ;;
-;; See Readme.org for more information
+;; See README.org for more information
 ;;
 ;; * The package
 (in-package #:str8ts)
@@ -500,15 +500,23 @@ the given numbers and the empty fields are represented by 0."
        (values ,result (/ (- ,end ,start) internal-time-units-per-second)))))
 
 
-(defmethod solve-puzzle (file)
-  "Solves the puzzle given in FILE.
+(defmethod solve-puzzle (file &key (draw t))
+  "Solves the puzzle in FILE given as a string.
 
 See function read-grid for the format."
-  (let ((p (make-puzzle file)))
+  (let ((p       (make-puzzle (pathname file)))
+        (initial (concatenate 'string "images/" (file-namestring file) ".png"))
+        (solved  (concatenate 'string "images/" (file-namestring file) "-solved.png")))
     (print-puzzle p 0)
+    (when draw
+      (draw-puzzle p initial))
     (multiple-value-bind (puzzle time)
         (timing (search-puzzle p 0))
       (print-puzzle puzzle t)
-      (format t "Puzzle solved in ~,3F seconds." time))))
+      (when draw
+        (draw-puzzle puzzle solved))
+      (format t "Puzzle solved in ~,3F seconds." time)
+      (solvedp puzzle)) ; Returning the status of the puzzle
+    ))
 
 
