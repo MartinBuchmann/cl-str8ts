@@ -50,10 +50,10 @@
 
 ;; ** Testing the elimination
 (let ((p (make-puzzle))) ; Using the default puzzle
-  (prove:is (bits (aref (digits p) 0 0)) "000000000")
+  (prove:is (bits (aref (digits p) 0 0)) "000000010")
   (prove:is (bits (aref (digits p) 5 0)) "111010000")
   (eliminate p 5 0 7)
-  (prove:is (bits (aref (digits p) 5 0)) "000000000"))
+  (prove:is (bits (aref (digits p) 5 0)) "000010000"))
 
 ;; ** Testing the printing
 (prove:is 0 (print-puzzle (make-puzzle) 0))

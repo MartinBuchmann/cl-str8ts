@@ -45,7 +45,7 @@ Load and test the program with:
 
 See the directory =puzzles= for the given puzzles or add more yourself.
 
-To solve a puzzle use =solve-puzzle=
+To solve a puzzle use =solve-puzzle=:
 #+begin_src common-lisp
 (solve-puzzle #p"puzzles/2019-01-29-hard")
 
@@ -73,7 +73,7 @@ Final state:
 |   8 |   9 |  -5 |   4 |   3 |  10 |   1 |   2 |  -6 |
 |  10 |   7 |   8 |   6 |   9 |  -2 |   3 |   4 |  10 |
  -----------------------------------------------------
-Puzzle solved in 1.911 seconds.
+Puzzle solved in 0.005 seconds.
 #+end_src
 
 * Drawing puzzles
@@ -112,7 +112,7 @@ because of in-valid sub-units makes not sense. I have to change =eliminate= to
 take care of the checking for valid candidates.
 
 #+begin_src common-lisp
-STR8TS> (solve-puzzle "/Users/Martin/Documents/src/lisp/str8ts/puzzles/2019-03-05-hard")
+STR8TS> (solve-puzzle "puzzles/2019-03-05-hard")
 Initial puzzle:
  -----------------------------------------------------
 |   3 |   0 |  10 |  10 |   9 |   0 |   0 |  10 |  -4 |
@@ -208,53 +208,54 @@ Final state:
 |   9 |   8 |   3 |   5 |   2 |   4 |   1 |   6 |   7 |
 |  10 |  10 |   2 |   4 |   3 |  10 |  -8 |   5 |   6 |
  -----------------------------------------------------
-Puzzle solved in 8.794 seconds.
+Puzzle solved in 0.082 seconds.
 T
-measuring PROFILE overhead..done
-  seconds  |     gc     |    consed   |   calls   |  sec/call  |  name  
--------------------------------------------------------------
-     0.447 |      0.025 | 256,129,360 |    24,975 |   0.000018 | VALID-PUZZLE-P
-     0.405 |      0.004 |  37,893,280 |         2 |   0.202500 | DRAW-PUZZLE
-     0.259 |      0.000 |  86,989,424 | 2,778,418 |   0.000000 | VALID-SUBUNIT-P
-     0.150 |      0.000 |   5,505,776 |    82,998 |   0.000002 | LIST-PLACES-WITH-SINGLE-UNIT-SOLUTION
-     0.135 |      0.000 |   2,916,032 |    16,559 |   0.000008 | FIND-FIELD-WITH-FEWEST-POSSIBILITIES
-     0.104 |      0.000 |  11,413,744 |    49,948 |   0.000002 | COPY-PUZZLE-ARRAY
-     0.073 |      0.000 |  17,039,360 |    82,998 |   0.000001 | ONLY-VALID-DIGITS
-     0.033 |      0.000 |           0 | 1,051,705 |   0.000000 | VALUE-IS-SET-P
-     0.014 |      0.005 |   3,440,640 |    28,215 |   0.000001 | FIRST-SET-VALUE
-     0.014 |      0.000 |   6,193,152 |   177,010 |   0.000000 | LIST-ALL-POSSIBLE-DIGITS
-     0.012 |      0.000 |   1,146,752 |    24,974 |   0.000000 | COPY-PUZZLE
-     0.011 |      0.000 |           0 |    16,561 |   0.000001 | SOLVEDP
-     0.009 |      0.000 |           0 | 1,103,948 |   0.000000 | ONLY-POSSIBLE-VALUE-IS-P
-     0.001 |      0.000 |      65,504 |         2 |   0.000500 | PRINT-PUZZLE
-     0.000 |      0.000 |      98,304 |       121 |   0.000000 | LIST-UNITS-CONTAINING
-     0.000 |      0.000 |           0 |         1 |   0.000000 | PUZZLE-SUB-UNITS
-     0.000 |      0.000 |      32,768 | 1,051,705 |   0.000000 | ELIMINATE
-     0.000 |      0.000 |           0 |         1 |   0.000000 | MAKE-PUZZLE
-     0.000 |      0.000 |           0 |        57 |   0.000000 | SPLIT-SUB-ROWS
-     0.000 |      0.000 |           0 |         1 |   0.000000 | READ-GRID
-     0.000 |      0.000 |           0 |         1 |   0.000000 | SOLVE-PUZZLE
-     0.000 |      0.000 |      32,768 |    31,620 |   0.000000 | ASSIGN
-     0.000 |      0.000 |           0 |    82,998 |   0.000000 | INTEGERS->DIGITS
-     0.000 |      0.000 |           0 |    28,222 |   0.000000 | ELIMINATE-VALUE-IN-UNITS
-     0.000 |      0.000 |      32,736 |       226 |   0.000000 | IN-SUB-UNIT-P
-     0.000 |      0.000 |           0 |    24,975 |   0.000000 | SEARCH-PUZZLE
-     0.000 |      0.000 |           0 |        57 |   0.000000 | FIND-SUB-UNITS
-     0.000 |      0.000 |           0 |         1 |   0.000000 | PUZZLE-UNITS
-     0.000 |      0.000 |           0 |        57 |   0.000000 | SPLIT-SUB-COLS
-     0.000 |      0.000 |           0 | 1,424,277 |   0.000000 | COUNT-REMAINING-POSSIBLE-DIGITS
-     0.000 |      0.000 |           0 |    82,998 |   0.000000 | UNSET-POSSIBLE-VALUE
--------------------------------------------------------------
-     1.668 |      0.034 | 428,929,600 | 8,165,631 |            | Total
+  seconds  |     gc     |   consed   |  calls |  sec/call  |  name  
+---------------------------------------------------------
+     0.408 |      0.005 | 35,691,440 |      2 |   0.204000 | DRAW-PUZZLE
+     0.005 |      0.000 |          0 |  8,076 |   0.000001 | COUNT-REMAINING-POSSIBLE-DIGITS
+     0.003 |      0.000 |    131,072 |     84 |   0.000039 | FIND-FIELD-WITH-FEWEST-POSSIBILITIES
+     0.002 |      0.000 |    688,128 |  1,272 |   0.000002 | ONLY-VALID-DIGITS
+     0.002 |      0.000 |    229,376 |  2,628 |   0.000001 | LIST-ALL-POSSIBLE-DIGITS
+     0.002 |      0.000 |     32,768 |    457 |   0.000004 | FIRST-SET-VALUE
+     0.002 |      0.000 |          0 | 12,508 |   0.000000 | ONLY-POSSIBLE-VALUE-IS-P
+     0.001 |      0.000 |    131,056 |      2 |   0.000500 | PRINT-PUZZLE
+     0.001 |      0.000 |     65,376 |    316 |   0.000003 | COPY-PUZZLE-ARRAY
+     0.001 |      0.000 |          0 |  1,272 |   0.000000 | UNSET-POSSIBLE-VALUE
+     0.000 |      0.000 |     65,536 |  1,045 |   0.000000 | LIST-PLACES-WITH-SINGLE-UNIT-SOLUTION
+     0.000 |      0.000 |    262,064 |  7,246 |   0.000000 | VALID-SUBUNIT-P
+     0.000 |      0.000 |          0 |     57 |   0.000000 | SPLIT-SUB-COLS
+     0.000 |      0.000 |          0 |      1 |   0.000000 | PUZZLE-UNITS
+     0.000 |      0.000 |          0 | 25,064 |   0.000000 | VALUE-IS-SET-P
+     0.000 |      0.000 |          0 |     57 |   0.000000 | FIND-SUB-UNITS
+     0.000 |      0.000 |          0 |     85 |   0.000000 | SEARCH-PUZZLE
+     0.000 |      0.000 |     98,304 |    226 |   0.000000 | IN-SUB-UNIT-P
+     0.000 |      0.000 |          0 |    464 |   0.000000 | ELIMINATE-VALUE-IN-UNITS
+     0.000 |      0.000 |          0 |  1,272 |   0.000000 | INTEGERS->DIGITS
+     0.000 |      0.000 |          0 |  1,095 |   0.000000 | ASSIGN
+     0.000 |      0.000 |          0 |      1 |   0.000000 | VALID-PUZZLE-P
+     0.000 |      0.000 |          0 |      1 |   0.000000 | SOLVE-PUZZLE
+     0.000 |      0.000 |          0 |      1 |   0.000000 | READ-GRID
+     0.000 |      0.000 |     32,768 |    158 |   0.000000 | COPY-PUZZLE
+     0.000 |      0.000 |          0 |     57 |   0.000000 | SPLIT-SUB-ROWS
+     0.000 |      0.000 |          0 |      1 |   0.000000 | MAKE-PUZZLE
+     0.000 |      0.000 |          0 | 25,064 |   0.000000 | ELIMINATE
+     0.000 |      0.000 |          0 |      1 |   0.000000 | PUZZLE-SUB-UNITS
+     0.000 |      0.000 |          0 |     86 |   0.000000 | SOLVEDP
+     0.000 |      0.000 |     65,536 |    121 |   0.000000 | LIST-UNITS-CONTAINING
+---------------------------------------------------------
+     0.427 |      0.005 | 37,493,424 | 88,720 |            | Total
 
-estimated total profiling overhead: 7.41 seconds
+estimated total profiling overhead: 0.08 seconds
 overhead estimation parameters:
-  6.0e-9s/call, 9.08e-7s total profiling, 4.0999998e-7s internal profiling
+  4.0000003e-9s/call, 8.8599995e-7s total profiling, 3.48e-7s internal profiling
 #+end_src
 
-I am pretty sure that there is more room for optimization and the internal
-structure of the sub-units could be optimized etc. but this being just a hobby
-project, I will just leave it as it is...
+After finding the final(?) bugs this is pretty impressive for my standards. I
+had to make sure that the =*units*= were calculated correctly and the =digits=
+were set to reasonable values, then I do not have to check each puzzle for
+validity and save quite some time. I guess I really will leave it as it is this
+time...
 
 * Acknowledgment
 

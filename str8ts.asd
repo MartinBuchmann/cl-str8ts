@@ -4,7 +4,7 @@
   :description "My str8ts puzzle solver"
   :author "Martin Buchmann <Martin.Buchmann@googlemail.com"
   :license "WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/"
-  :version "1.2"
+  :version "1.4"
   :serial t
   :depends-on (#:alexandria #:iterate #:log4cl #:cl-annot #:vecto #:anaphora)
   :components ((:file "package")

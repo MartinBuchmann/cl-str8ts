@@ -1,12 +1,12 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-15 18:18:47 Martin>
+;; Time-stamp: <2019-03-15 19:19:18 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
 ;;
 ;; Author: Martin Buchmann <Martin.Buchmann@gmail.com>
 ;; GIT: https://github.com/MartinBuchmann/cl-str8ts
-;; Version: 1.2
+;; Version: 1.4
 ;; Created: 2019-02-10
 ;; Keywords: common-lisp str8ts solver
 ;; Licence: WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/
@@ -62,12 +62,12 @@
 
 ;; *** Error conditions
 ;;
-;; To track contradictions I define a condition.
+;; To track contradictions I define conditions.
 (define-condition unit-contains-contradictory-solution (condition) ())
+(define-condition empty-digits (condition) ())
 
 ;; * The generic functions
 ;;
-;; I define generic function even if the methods have only one purpose.
 (defgeneric copy-puzzle (puzzle)
   (:documentation "Copy a given PUZZLE into a whole new puzzle and returns it."))
 
@@ -141,7 +141,11 @@
 ;;
 (defun count-remaining-possible-digits (possible-digits)
   "How many possible digits are left in there?"
-  (logcount possible-digits))
+  (let ((c (logcount possible-digits)))
+    ;; If there are no digits possible signal a condition
+    (if (zerop c)
+        (error 'empty-digits)
+        c)))
 
 (defun first-set-value (possible-digits)
   "Return the index of the first set value in POSSIBLE-DIGITS."
@@ -219,8 +223,7 @@
             ;; Update the main grid
             (setf (aref grid row col) found-value)
             ;; Eliminate that value we just found in all peers
-            (eliminate-value-in-units puzzle row col found-value)
-            ))
+            (eliminate-value-in-units puzzle row col found-value)))
         ;; Now check if any unit has a single possible place for that value
         (iter (for (r . c) in (list-places-with-single-unit-solution puzzle row col value))
               (assign puzzle r c value))))))
@@ -229,16 +232,17 @@
 (defmethod assign ((puzzle puzzle) row col value)
   (with-slots (grid digits) puzzle
     ;; When 1 <= v <= 9 --> Given value, eliminate the other digits for this field
+    ;; Check if the value is already set
     (setf (aref grid row col) value)
     (iter
-      (for other-value from 1 to 9) ; Eliminate the others digits
+      (for other-value from 1 to 9)     ; Eliminate the others digits
       (unless (= other-value value)
         (eliminate puzzle row col other-value)))
     ;; Eliminate the value from the units of field.
     (iter (for unit in (aref *units* row col))
           (iter (for (r . c) in unit)
-                (eliminate puzzle r c value))))
-  puzzle)
+                (eliminate puzzle r c value)))
+    puzzle))
 
 ;; * Read in a puzzle
 
@@ -267,7 +271,7 @@
       (for (values r c) = (floor i 9))
       (when (<= -9 v -1)
         ;; When -9 <= v <= -1 --> blocked field, remove v from the units of the field
-        (setf (aref digits r c) 0)
+        (setf (aref digits r c) (expt 2 (1- (abs v))))
         (eliminate-value-in-units puzzle r c (abs v)))
       (when (<= 1 v 9)
         ;; Only when a proper value is given assign it.
@@ -341,7 +345,8 @@
           (setf (aref units row col)
 	        (multiple-value-bind (peers-row peers-col)
 		    (list-units-containing puzzle row col)
-	          (list peers-row peers-col)))))
+	          (list (remove (cons row col) peers-row :test #'equalp)
+                        (remove (cons row col) peers-col :test #'equalp))))))
       (finally (return units)))))
 
 (defun in-sub-unit-p (row col sub-unit)
@@ -495,15 +500,14 @@ the given numbers and the empty fields are represented by 0."
 		      (collect (list n (cons r c)))))))
 	       (lambda (a b)
 	         (< (car a) (car b)))))
-             anaphora:it
-             (error 'unit-contains-contradictory-solution))
+             anaphora:it ; A valid candidate was found, return it
+             (error 'unit-contains-contradictory-solution)) ; No proper candidate found
       @ignore n
       (cons row col))))
 
 (defmethod search-puzzle ((puzzle puzzle) step)
   (cond
     ((null puzzle) nil)                 ; Earlier failure
-    ((not (valid-puzzle-p puzzle)) nil) ; Invalid puzzle
     ((solvedp puzzle) puzzle)           ; Solved
     (t					; Search
      ;; Chose the unfilled field with the fewest possibilities
@@ -514,7 +518,8 @@ the given numbers and the empty fields are represented by 0."
 	  (lambda (candidate)
 	    (handler-case               ; Skip search errors and continue
 	        (search-puzzle (assign (copy-puzzle puzzle) row col candidate) (1+ step))
-	      (unit-contains-contradictory-solution () nil)))
+	      (empty-digits () nil)
+              (unit-contains-contradictory-solution () nil)))
 	  (list-all-possible-digits (aref digits row col))))))))
 
 ;; ** Solving a given puzzle
@@ -541,10 +546,11 @@ the given numbers and the empty fields are represented by 0."
 See function read-grid for the format."
   (let ((p       (make-puzzle (pathname file) draw))
         (solved  (concatenate 'string "images/" (file-namestring file) "-solved.png")))
-    (multiple-value-bind (puzzle time)
-        (timing (search-puzzle p 0))
-      (print-puzzle puzzle t)
-      (when draw
-        (draw-puzzle puzzle solved))
-      (format t "Puzzle solved in ~,3F seconds." time)
-      (solvedp puzzle))))  ; Returning the status of the puzzle
+    (when (valid-puzzle-p p) ; Check if a proper puzzle was given
+      (multiple-value-bind (puzzle time)
+          (timing (search-puzzle p 0))
+        (print-puzzle puzzle t)
+        (when draw
+          (draw-puzzle puzzle solved))
+        (format t "Puzzle solved in ~,3F seconds." time)
+        (solvedp puzzle)))))  ; Returning the status of the puzzle
