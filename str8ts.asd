@@ -6,7 +6,7 @@
   :license "WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/"
   :version "1.2"
   :serial t
-  :depends-on (#:alexandria #:iterate #:log4cl #:cl-annot #:vecto)
+  :depends-on (#:alexandria #:iterate #:log4cl #:cl-annot #:vecto #:anaphora)
   :components ((:file "package")
                (:file "str8ts")
                (:file "str8ts-draw"))

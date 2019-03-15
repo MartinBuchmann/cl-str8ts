@@ -2,4 +2,5 @@
 
 (defpackage #:str8ts
   (:use #:cl #:iterate #:cl-annot #:vecto)
-  (:import-from :alexandria :curry))
+  (:import-from :alexandria :curry)
+  (:import-from :anaphora :aif :it))

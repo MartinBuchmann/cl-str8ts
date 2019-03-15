@@ -1,7 +1,7 @@
 (in-package :str8ts)
 
 ;; * Testing using prove
-(prove:plan 38)
+(prove:plan 47)
 
 ;; ** Testing the new types
 (prove:ok (typep 4 'value))
@@ -34,6 +34,10 @@
 
 (prove:is (unset-possible-value '#b111111111 5) '#b111101111)
 
+(prove:is (integers->digits '(1 2 3 4 5 6 7 8 9)) 511)
+(prove:is (integers->digits '(2 3 4 5 6 7 8 9)) 510)
+(prove:is (integers->digits '(2 3 4 5 6 7 9)) 382)
+
 ;; ** Testing the sub-unit splitting
 (prove:is (split-sub-rows '((0 . 0) (0 . 3))) '(((0 . 0)) ((0 . 3))))
 (prove:is (split-sub-cols '((0 . 0) (3 . 0))) '(((0 . 0)) ((3 . 0))))
@@ -46,9 +50,10 @@
 
 ;; ** Testing the elimination
 (let ((p (make-puzzle))) ; Using the default puzzle
-  (prove:is (bits (aref (digits p) 0 0)) "011111010")
-  (eliminate p 0 0 4)
-  (prove:is (bits (aref (digits p) 0 0)) "011110010"))
+  (prove:is (bits (aref (digits p) 0 0)) "000000000")
+  (prove:is (bits (aref (digits p) 5 0)) "111010000")
+  (eliminate p 5 0 7)
+  (prove:is (bits (aref (digits p) 5 0)) "000000000"))
 
 ;; ** Testing the printing
 (prove:is 0 (print-puzzle (make-puzzle) 0))
@@ -66,8 +71,15 @@
 (prove:ok (valid-puzzle-p (make-puzzle)))
 (prove:ok (valid-puzzle-p (make-puzzle #p"puzzles/2019-01-26-solved")))
 
+(let ((p (make-puzzle)))
+  (prove:is (only-valid-digits p 0 0 (integers->digits (list 1 2 3 4 5 6 7 8 9))) '(2) :test #'equalp)
+  (prove:is (only-valid-digits p 8 7 (integers->digits (list 1 2 3 4 5 6 7 8 9))) '(7) :test #'equalp)
+  (prove:is (only-valid-digits p 3 2 (integers->digits (list 1 2 3 4 5 6 7 8 9))) '(9) :test #'equalp)
+  (prove:is (only-valid-digits p 3 6 (integers->digits (list 1 2 3 4 6))) '(4) :test #'equalp)
+  (prove:is (only-valid-digits p 3 6 (integers->digits (list 1 2 3 4 6))) '(4) :test #'equalp))
+
 ;; ** Testing the search
-(prove:is (find-field-with-fewest-possibilities (make-puzzle)) '(0 . 3) :test #'equalp)
+(prove:is (find-field-with-fewest-possibilities (make-puzzle)) '(4 . 1) :test #'equalp)
 
 (prove:is (grid (make-puzzle #p"puzzles/2019-01-26-solved"))
           (grid (search-puzzle (make-puzzle) 0)) :test #'equalp)

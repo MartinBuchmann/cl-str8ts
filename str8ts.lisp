@@ -1,5 +1,5 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-06 11:26:00 Martin>
+;; Time-stamp: <2019-03-15 16:18:37 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -111,7 +111,10 @@
   (:documentation "Returns a sorted list of the counts of possible values (count (row . col))."))
 
 (defgeneric valid-puzzle-p (puzzle)
-    (:documentation "Returns T if the un-solved puzzle is still valid."))
+  (:documentation "Returns T if the un-solved puzzle is still valid."))
+
+(defgeneric only-valid-digits (puzzle row col possible-digits)
+    (:documentation "Returns a list of valid digits for field (ROW . COL) of PUZZLE."))
 
 (defgeneric search-puzzle (puzzle step)
   (:documentation "Using depth-first search and propagation, try all possible values."))
@@ -160,8 +163,14 @@
   (logbitp (- value 1) possible-digits))
 
 (defun unset-possible-value (possible-digits value)
-  "Returns an integer representing POSSIBLE-DIGITS with VALUE unset"
-  (logxor possible-digits (ash 1 (- value 1))))
+  "Returns an integer representing POSSIBLE-DIGITS with VALUE unset."
+  (logxor possible-digits (ash 1 (1- value))))
+
+(defun integers->digits (integers)
+  "Returns an integer representing the digits for the list of INTEGERS."
+  (iter
+    (for i in integers)
+    (sum (expt 2 (1- i)))))
 
 ;; * Constrained propagation
 ;;
@@ -170,7 +179,6 @@
 (defmethod eliminate-value-in-units ((puzzle puzzle) row col value)
   (iter
     (for u in (aref *units* row col))
-    (log:debug "R: ~D C: ~D ~A" row col u)
     (iter
       (for (r . c) in u)
       (eliminate puzzle r c value))))
@@ -201,7 +209,9 @@
     (when (value-is-set-p (aref digits row col) value)
       ;; Eliminate the value from the set of possible digits
       (let ((possible-digits
-              (unset-possible-value (aref digits row col) value)))
+              (integers->digits
+               (only-valid-digits puzzle row col
+                                  (unset-possible-value (aref digits row col) value)))))
         (setf (aref digits row col) possible-digits)
         ;; Now if we're left with a single possible value
         (when (and (<= 0 (aref grid row col)) (= 1 (count-remaining-possible-digits possible-digits)))
@@ -282,7 +292,7 @@
                    (minusp (aref grid pr col))) ; Blocked and empty fields
          (collect (cons pr col)))))))
 
-;; Then we will split the units in the sub-units.
+;; Then we will split the units in its sub-units.
 (defmethod find-sub-units ((puzzle puzzle) row col)
   (with-slots (grid) puzzle
     (multiple-value-bind (r c)
@@ -333,10 +343,9 @@
 (defun in-sub-unit-p (row col sub-unit)
   "Returns the sub-unit if (row . col) is part of SUB-UNIT."
   ;; Out of bound indexes do not matter here and save further checking.
-  (let ((candidates (list (cons (1- row) col) (cons (1+ row) col)
+  (let ((candidates (list (cons row col) (cons (1- row) col) (cons (1+ row) col)
                           (cons row (1- col)) (cons row (1+ col)))))
     (some (lambda (u) (member u sub-unit :test #'equalp)) candidates)))
-
 
 (defmethod puzzle-sub-units ((puzzle puzzle))
   (with-slots (grid) puzzle
@@ -433,7 +442,7 @@ the given numbers and the empty fields are represented by 0."
            (iter
              (for i below 81)
              (for su = (row-major-aref *sub-units* i))
-             (appending
+             (nconcing
               (iter
                 (for u in su)
                 (collect
@@ -441,26 +450,49 @@ the given numbers and the empty fields are represented by 0."
                       (for (r . c) in u)
                       (collect (aref grid r c))))))))))
 
+(defmethod only-valid-digits ((puzzle puzzle) row col possible-digits)
+  (with-slots (grid) puzzle
+    (flet ((valid-digits-aux (su)
+             (iter
+               (with valid-digits = '())
+               (for candidate = '())
+               (for v in (list-all-possible-digits possible-digits))
+               (iter (for (r . c) in su)
+                     (push 
+                      (if (and (= r row) (= c col))
+                          v
+                          (aref grid r c)) candidate))
+               (when (valid-subunit-p candidate)
+                 (push v valid-digits))
+               (finally (return valid-digits)))))
+      (destructuring-bind (su-1 su-2)
+          (aref *sub-units* row col)
+        (intersection
+         (valid-digits-aux su-1)
+         (valid-digits-aux su-2))))))
+
 ;; * Solving the puzzle
 
 ;; ** Depth-first search
 
-;; I will not implement further logic to reduce the number of possible values
-;; but try and check them all.
 (defmethod find-field-with-fewest-possibilities ((puzzle puzzle))
-  (with-slots (digits) puzzle
+  (with-slots (grid digits) puzzle
     (destructuring-bind (n (row . col))
-	(first
-	 (sort
-	  (iter
-            (for r below 9)
-	    (nconcing (iter
-                        (for c below 9)
-		        (for n = (count-remaining-possible-digits (aref digits r c)))
-		        (when (< 1 n) 
-		          (collect (list n (cons r c)))))))
-	  (lambda (a b)
-	    (< (car a) (car b)))))
+        ;; If no empty field was found signal an error
+	(aif (first
+	      (sort
+	       (iter
+                 (for r below 9)
+	         (nconcing
+                  (iter
+                    (for c below 9)
+	            (for n = (count-remaining-possible-digits (aref digits r c)))
+                    (when (and (not (= 10 (aref grid r c))) (< 1 n)) 
+		      (collect (list n (cons r c)))))))
+	       (lambda (a b)
+	         (< (car a) (car b)))))
+             anaphora:it
+             (error 'unit-contains-contradictory-solution))
       @ignore n
       (cons row col))))
 
@@ -471,7 +503,6 @@ the given numbers and the empty fields are represented by 0."
     ((solvedp puzzle) puzzle)           ; Solved
     (t					; Search
      ;; Chose the unfilled field with the fewest possibilities
-     (log:debug "Level: ~D" step)
      (with-slots (digits) puzzle
        (destructuring-bind (row . col)
 	   (find-field-with-fewest-possibilities puzzle)
@@ -516,7 +547,4 @@ See function read-grid for the format."
       (when draw
         (draw-puzzle puzzle solved))
       (format t "Puzzle solved in ~,3F seconds." time)
-      (solvedp puzzle)) ; Returning the status of the puzzle
-    ))
-
-
+      (solvedp puzzle))))  ; Returning the status of the puzzle
