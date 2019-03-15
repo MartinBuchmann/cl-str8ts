@@ -1,5 +1,5 @@
 ;; -*- ispell-local-dictionary: "en_GB" -*-
-;; Time-stamp: <2019-03-15 16:18:37 Martin>
+;; Time-stamp: <2019-03-15 18:18:47 Martin>
 ;; * str8ts.lisp
 ;;
 ;; Copyright (C) 2019 Martin Buchmann
@@ -71,7 +71,7 @@
 (defgeneric copy-puzzle (puzzle)
   (:documentation "Copy a given PUZZLE into a whole new puzzle and returns it."))
 
-(defgeneric read-grid (puzzle &optional (file))
+(defgeneric read-grid (puzzle &optional (file) (draw))
   (:documentation "Parse a given GRID-STRING and fill PUZZLE, accordingly."))
 
 (defgeneric list-units-containing (puzzle row col)
@@ -242,7 +242,7 @@
 
 ;; * Read in a puzzle
 
-(defmethod read-grid ((puzzle puzzle) &optional (file #p"puzzles/2019-01-26-medium"))
+(defmethod read-grid ((puzzle puzzle) &optional (file #p"puzzles/2019-01-26-medium") (draw t))
   ;; A puzzle consists of 81 fields (9x9) where each field can take a value from =1=
   ;; to =9=. Blocked fields are encoded using =10= and blocked values negative
   ;; integers.
@@ -254,6 +254,10 @@
       (for v in-file file)
       (for i from 0)
       (setf (row-major-aref grid i) v))
+    ;; Output the initial puzzle before starting the elimination
+    (when draw
+      (draw-puzzle puzzle (concatenate 'string "images/" (file-namestring file) ".png")))
+    (print-puzzle puzzle 0)
     (setq *units* (puzzle-units puzzle)
           *sub-units* (puzzle-sub-units puzzle))
     ;; When the units are known assigning the digits.
@@ -363,13 +367,13 @@
       (finally (return sub-units)))))
 
 ;; ** Create a puzzle object.
-(defun make-puzzle (&optional (file #p"puzzles/2019-01-26-medium"))
+(defun make-puzzle (&optional (file #p"puzzles/2019-01-26-medium") (draw t))
   "Make a str8ts puzzle from the given FILE.
 
 A 10 indicates a black field, negative numbers are numbers within black fields,
 the given numbers and the empty fields are represented by 0."
   (let ((p (make-instance 'puzzle)))
-    (read-grid p file)
+    (read-grid p file draw)
     p))
 
 ;; * Printing the puzzle
@@ -535,12 +539,8 @@ the given numbers and the empty fields are represented by 0."
   "Solves the puzzle in FILE given as a string.
 
 See function read-grid for the format."
-  (let ((p       (make-puzzle (pathname file)))
-        (initial (concatenate 'string "images/" (file-namestring file) ".png"))
+  (let ((p       (make-puzzle (pathname file) draw))
         (solved  (concatenate 'string "images/" (file-namestring file) "-solved.png")))
-    (print-puzzle p 0)
-    (when draw
-      (draw-puzzle p initial))
     (multiple-value-bind (puzzle time)
         (timing (search-puzzle p 0))
       (print-puzzle puzzle t)
