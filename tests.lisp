@@ -88,7 +88,7 @@
 (prove:ok (solve-puzzle "puzzles/2019-01-28-easy"))
 (prove:ok (solve-puzzle "puzzles/2019-01-31-medium"))
 (prove:ok (solve-puzzle "puzzles/2019-02-04-hard"))
-
+(prove:ok (solve-puzzle "puzzles/2019-04-23-hard"))
 
 ;; * Reporting the results
 (prove:finalize)
